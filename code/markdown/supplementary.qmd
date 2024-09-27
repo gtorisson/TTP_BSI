@@ -1,0 +1,1416 @@
+---
+title: "Association of short time to blood culture positivity with disease severity in - a population-based cohort study"
+subtitle: "Supplementary appendix"
+mainfont: Times New Roman
+format:
+  pdf:
+    toc: true
+    toc-location: left
+    toc-depth: 2
+    toc-title: Contents
+    code-fold: true
+output: 
+  pdf_document:
+    extra_dependencies: ["float"]
+bibliography: references.bib
+csl: the-lancet-infectious-diseases.csl
+header-includes:
+- \usepackage{caption}
+- \usepackage[singlelinecheck=false]{caption}
+- \captionsetup[figure]{font=small}
+- \usepackage{sectsty}
+---
+
+```{=html}
+<style>
+  main {
+  text-align: justify}
+  header {
+  text-align: left}
+  </style>
+```
+```{r markdown_setup, echo = F}
+
+# This is the setup for the markdown document
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      include = TRUE, 
+                      eval = TRUE,
+                      cache = TRUE)
+
+```
+
+```{r R_setup, eval =TRUE, cache = FALSE}
+
+# First, we load all required packages for the entire project
+
+pacman::p_load(PMDatR, rms, snakecase, ggh4x, tidyverse, vroom, ggExtra,  arrow, here, skimr, ggsci, readxl, survminer, survival, DescTools, data.table, janitor, kableExtra, hms, scales, ggthemes, gtsummary, ggsurvfit, flextable, patchwork)
+
+# these are prerequisites
+start_date <- "2021-01-01"
+end_date <- "2023-12-31"
+chosen_ttp_cutoff <- 10 # rationale is provided below
+duplicate_time <- 30
+pop_skane_2022 <- 1414324
+options(digits = 3, scipen = 999)
+
+# this loads all of the functions used for the project
+source(here("code", "R", "functions.R"))
+```
+
+\newpage
+
+# 1. Rationale
+
+## Definition and incidence of bloodstream infections
+
+Bloodstream infections (BSIs) are defined as infections with growth of a relevant pathogen in blood cultures. When a BSI is suspected, patient blood is added to a blood culture medium (in a bottle), which is subsequently incubated at 37°C in a blood culture cabinet.[@gonzalez2020a] The time from incubation to reaching a detection threshold is time to positivity (TTP).
+
+Bloodstream infections are medical emergencies, with a short term mortality of 10-20%, causing \> 150000 deaths in Europe per year.[@goto2013; @Kontula2021] In addition, several studies have shown an increasing incidence of BSIs, with the largest increase in the oldest individuals.[@skogberg2012; @mehl2017; @sogaard2011; @Ljungquist2023] Population projections unanimously predicts that this group will increase substantially, potentially leading to a further increase in BSI incidence. This emphasises the need to improve management of bloodstream infections. Challenges in BSI management include predicting which patients with suspected BSI that will deteriorate, requiring continuous monitoring, and who will not.
+
+## Conflicting results in previous studies
+
+Several previous studies have examined the association between TTP and outcomes, including endocarditis and mortality.[@bläckberg2023; @deguchi2024; @cillóniz2017; @martín-gutiérrez2017; @hamilton2022; @kahn2021; @khatib2005; @laupland2024a; @liao2009; @marra2006; @oldberg2021; @peralta2007; @peralta2006; @siméon2019] These studies have found conflicting results, with some studies finding a strong association between TTP and outcome, while others have found no association at all.[@laupland2024a; @hamilton2022] This has led to a discussion on the clinical value of TTP, and as of today, the only recommendation for clinical use of TTP is for line-associated bloodstream infections.[@lamy2019; @mermel2009]
+
+There has been no clear explanation for the conflicting results in previous studies. Some factors associated with the validity of TTP have been described, including blood volume and time from venepuncture to incubation.[@lamy2019,@cobos-trigueros2014] In a recent large population-based study, the authors state that small study samples may have contributed.[@laupland2024a] Indeed, a recent systematic review / meta-analysis of 24 studies included 4738 patients, indicating that the average study sample is rather small.[@hsieh2022] Upon studying previous literature, we noted that all of the previous studies have used two different modelling approaches for the association. Many previous studies have categorised TTP (which is an inherently continuous variable) with data-driven categorisations, based on either the distribution (median, lowest tertile, lowest quartile) or on ROC / discrimination / Youden index.[@kahn2021; @khatib2005; @bläckberg2023; @oldberg2021; @marra2006; @laupland2024a]. These have generally found an association. Others have used a continuous, linear approach and found no association.[@hamilton2022; @deguchi2024] Bacterial growth is an inherently exponential phenomenon, where *Escherichia coli* could double every 20 minutes in ideal conditions. Thus, during optima conditions, using a fixed detection threshold, a TTP difference of one hour would represent an eight-fold difference in the original bacterial load and a two-hour difference a 64-fold. Therefore, we hypothesised that if the bacterial load in blood is a marker of disease severity, the association of TTP and disease severity is likely to be exponential. However, no previous study has modelled the association in this way.
+
+## Lack of high-resolution disease severity markers
+
+Previous studies have used singular outcomes, typically mortality, ICU admission or endocarditis.[@bläckberg2023; @hsieh2022; @kahn2021; @khatib2005; @laupland2024a; @marra2006; @oldberg2021; @peralta2006] Although clinically relevant, these outcomes are dichotomous and have low resolution. There may also be confounding factors associated with both short TTP and the outcome (e.g. immunosuppression, high age, having received antibiotics prior to culture etc.). Therefore, we strived to 1) add several other parameters of disease severity, including inflammatory biomarkers and vital signs at the time of culturing and the following days and 2) adjust for more potential confounders.
+
+\pagebreak
+
+# 2. Methods
+
+## Setting
+
+### Geography and healthcare organisation in Skåne
+
+The Skåne region in southern Sweden has a population of approximately 1.4 million people (1 421 781in 2023). Skåne is a peninsula surrounded by water on three sides with the majority of the population living in the southwestern part. The population is served by ten acute care hospitals, with the Skåne university hospital, with sites in Malmö and Lund, providing tertiary care. The geography and hospital placement entails that almost all citizens will seek acute care at a Skåne hospital and vice versa: almost all patients in Skåne hospitals will be residents. This makes Skåne ideal for population-based studies using hospital-based case-finding.[@Ljungquist2023]
+
+```{r map_of_skane, fig.cap = "Geography, population density, hospital locations and placement of blood culturing cabinets within the Skåne region in southern Sweden"}
+
+# this is a function that makes a map of southern Sweden, including pop density, hospital locations and whether the hospitals have cabinets.
+make_map()
+
+```
+
+### Clinical microbiology and blood culture systems in Skåne
+
+Upon the suspicion of a BSI, blood cultures are collected, typically by obtaining four bottles (two BD Bactec Plus aerobic medium and two BD Bactec Lytic anaerobic medium) from the same venepuncture. However, in pediatric patients, singular bottles may be obtained. The bottles are then transported to blood culturing cabinets (BACTEC FX, BectonDickinson, Franklin Lakes, United States) for incubation. In Skåne, the five largest hospitals (in Malmö, Lund, Helsingborg, Kristianstad and Ystad) have on-site blood culturing cabinets, while the others do not. Blood cultures taken in hospitals without cabinets are transported to the nearest hospital with a cabinet for incubation. We hypothesised that this would lead to measurement error in terms of TTP, as bacteria may start to duplicate in the bottles in room temperature before incubation.[@rönnberg2013] After a bottle has indicated the growth of a pathogen in a cabinet, it is transported to the laboratory of clinical microbiology in Lund for further downstream procedures including microscopy, species identification and testing for antimicrobial susceptibility. There is only one microbiology lab in the region and all samples are sent to this lab.
+
+### Healthcare databases in Skåne
+
+Microbiology data is stored using two different information systems, wwLab which was used up until March 2021 and LIMS (Laboratory Information Management System), which has been used since. All ten hospitals in the Skåne region use the same system for electronical medical records, Melior (Siemens Healthcare Services, Upplands Väsby, Sweden). In this system, laboratory values, vital signs, medications, diagnoses etc. are recorded. Data from primary care is recorded in another system, with diagnoses, labs, medications etc. For medications, a specific database also contains data on pick-up at pharmacies. There is also a separate database on diagnoses. Data from these different systems are hosted by a regional service, which is updated daily. Data extraction from the regional databases as well as matching is provided by a specialised team after obtaining approvals from the Swedish Ethical Review Authority and a regional board approving all database extractions.
+
+## Data management
+
+### General aspects
+
+-   We used R for data management and statistical analyses: [https://www.r-project.org](https://www.r-project.org/), with the R studio <https://posit.co/download/rstudio-desktop/>
+
+-   For reproducibility, we used Quarto markdown for reports and manuscript (<https://quarto.org/docs/authoring/markdown-basics.html>).
+
+-   For transparency, all markdown code and R functions are available at <https://www.github.com/gtorisson>. This code covers all steps from the raw data to the rendering of this supplementary and the manuscript, including all statistical analyses, results, and figures. Due to privacy concerns, raw data can not be uploaded, which would have increased transparency further.
+
+-   Many functions were written in-house and are heavily dependent on local data structure and not generic.
+
+-   We used .parquet format for data storage throughout, see <https://arrow.apache.org/docs/r/index.html>
+
+-   We used `tidyverse` and the principles of tidy data with `janitor::clean_names()` naming conventions throughout (small_snake_case_only)
+
+### Data retrieval
+
+Case-finding was done in the microbiology database by staff at the Department of Clinical Microbiology in Lund. This database was queried for all blood culture bottles taken from 2021 through 2023. The process was overseen by the authors (TS and KO). This data was then linked to other regional healthcare database(s) in Skåne Region. Data retrieval and linkage was done by a dedicated data retrieval service (Kliniska Studier Sverige - Forum Söder), in close co-operation with the study researchers (OL and GT). Cases from the microbiology database were then matched by personal identification number and sample date to data from the other systems. After this, data without direct identifiers was retrieved, with no key.
+
+### Data preprocessing
+
+In all, the dataset consisted of 31 files. Some of the files were large and required data reduction. Some variables were duplicates or more of a technical character. We manually checked all variables for redundancy. We removed redundant variables and converted all files to .parquet files, to facilitate further handling.
+
+```{r data_preprocessing, eval = F}
+
+# This is code for data preprocessing - is only ran once as it is time consuming
+# make a list of files
+raw_files <- describe_directory(here("data", "raw_data"))
+
+# make variable list, add "keep" to mark which to keep
+variable_list <- variables_in_directory(here("data", "raw_data")) %>% 
+  dplyr::mutate(keep = NA)
+
+# write to disk for manual review, where keep was used
+writexl::write_xlsx(variable_list, path = here("data", "variable_list.xlsx"))
+
+# re-read updated list
+variable_list_keep_updated = read_excel(here("data", "variable_list_keep_updated.xlsx"))
+
+# convert all files, with keep variables, to .parquet for better downstream handling
+# this takes several hours
+# convert_to_parquet(file_list = raw_files, var_list = variable_list_keep_updated)
+```
+
+### Data management of microbiology data
+
+There were four microbiology files, three from the LIMS system (one for each year) and one from wwLab, which was used up until 2021-03-14, after which LIMS was used. First, LIMS files from 2021, 2022, and 2023 were combined. There are several differences between the wwLab and LIMS systems to account for, most notably, the wwLab systems display two blood culture bottles (one set) per row and LIMS one. In addition, polymicrobial findings may render several rows in the datasets. The four files were read, cleaned, harmonised and then merged into a new dataset. Time to positivity was changed to NA if the culture was negative.
+
+```{r read_clean_and_merge}
+
+# This chunk cleans and merges microbiology files.
+
+# paths to four microbiology files
+LIMS_filepath1 <- here("data", "converted_parquet", "MIKROBIOLOGI_Sammanstallning_Blododlingar_2021_LIMS_kompleterad.parquet")
+LIMS_filepath2 <- here("data", "converted_parquet", "MIKROBIOLOGI_Sammanstallning_Blododlingar_2022_LIMS_kompleterad.parquet")
+LIMS_filepath3 <- here("data", "converted_parquet", "MIKROBIOLOGI_Sammanstallning_Blododlingar_2023_LIMS_kompleterad.parquet")
+wwLab_filepath <- here("data", "converted_parquet", "MIKROBIOLOGI_Sammanstallning_Blododlingar_2021_wwLab_kompleterad.parquet")
+
+# read and prepare for merging
+LIMS <- bind_rows(
+  read_parquet(LIMS_filepath1) %>% clean_LIMS_file(), 
+  read_parquet(LIMS_filepath2) %>% clean_LIMS_file(), 
+  read_parquet(LIMS_filepath3) %>% clean_LIMS_file())
+wwLab <- read_parquet(wwLab_filepath) %>% clean_wwLab_file() 
+
+# first antibiotics column must be checked manually (names())
+col_num_first_ab <- 15 
+
+# fixing sir_data and merging files
+LIMS <- LIMS %>% 
+  fix_sir_data()
+wwLab <- wwLab %>% 
+  fix_sir_data()
+micro_data <- bind_rows(LIMS, wwLab) %>% 
+  clean_merged_file()
+
+# removing sir data and save into separate file
+micro_data <- remove_sir_data(micro_data, col_num_first_ab+1)
+
+# fix ttp, including stratification
+micro_data <- micro_data %>% fix_ttp()
+
+```
+
+##### Categorisation of pathogens
+
+The raw variable that contains microbiological findings included some swedish names, misspellings or old names, and was also differently represented in wwLab and LIMS (Fully CAPITALISED in ww Lab). Therefore, all findings were renamed into a "species" variable which is consistent and according to current taxonomy. Species were then also collapsed (e.g. *Klebsiella pneumoniae* and *Klebsiella oxytoca* collapsed into *Klebsiella* species). A list of all species were saved as an external excel file. This list was reviewed by all authors, including two specialists in clinical Microbiology (TS and KO) and we determined which species were considered potential contaminants (e.g., coagulase-negative staphylococci). In addition, we categorised all species into two categorical levels, first being gram-negative, gram-positive, anaerobic or fungal. Of course, anaerobic bacteria are also negative or positive on gram stains. The rationale here was to supply clinically meaningful categories that might warrant different treatments. For the next level, we added somewhat higher resolution, the full classification, named "pathogen_classification_2021_2023.xlsx" is found in a separate supplementary file.
+
+```{r rename_bacteria}
+
+# This chunk renames and classifies bacteria
+
+# clean and rename bacterial names
+micro_data <- micro_data %>% rename_bacteria()
+
+# create a species list
+species_list <- micro_data %>% filter(finding != "Negative") %>% 
+  group_by(species) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  mutate(potential_contaminant = NA,
+         pathogen_class = NA)
+
+# write this to excel
+writexl::write_xlsx(species_list, path = here("data", "pathogen_classification_2021_2023.xlsx"))
+
+# this was then reviewed and updated by all authors and maunally completed and then re-read
+updated_species_list <- read_xlsx(here("data" , "bacterial_classification_2021_2023.xlsx")) 
+
+# this classification was then joined into the original file
+micro_data <- left_join(micro_data, updated_species_list %>% select(-count))
+
+```
+
+##### Definition of contaminants, polymicrobial findings and deduplication
+
+Using this classification, all positive findings with potential contaminants were flagged (species considered potential contaminants). Then we defined contaminants as those cultures where a potential contaminant was found in only one blood culture set on the index date, i.e., the date of the first culture of an individual during the study period. All other positive findings were labelled as relevant.
+
+Subsequently, we determined the episodes for each culture. All cultures in the 30 days after index date (the prespecified deduplication period) were considered to belong to the same episode and were deduplicated. Any cultures after 30 days were considered a new episode, with new index date etc.
+
+If an individual had several relevant findings on the index date, the result was flagged as polymicrobial. If results showed one relevant pathogen (e.g., *Escherichia coli*) and one contaminant (e.g., coagulase-negative staphylococci), this was considered a monomicrobial relevant finding (of *Escherichia coli* in this example). If two different contaminants were found, this was considered a contamination.
+
+Then, we deduplicated episodes into only one result for each individual and episode. If a relevant finding and a contaminant was coincident, the relevant finding was prioritised, as in clinical routine. Polymicrobial findings were included once and categorised as "polymicrobial". If everything else was alike, we prioritised findings with non-missing TTP and used the shortest TTP if several positive bottles were found. After deduplication, all BSI episodes could have one result only, belonging to one of the following categories:
+
+-   Non-anaerobic gram-positive bacteria
+    -   *Staphylococcus aureus*
+    -   *Staphylococcus* species (those considered relevant)
+    -   *Streptococcus pneumoniae*
+    -   Beta-hemolytic streptococci
+    -   Alpha-hemolytic streptococci
+    -   *Enterococcus* species
+    -   Other gram-positive
+-   Non-anaerobic gram-negative bacteria
+    -   *Escherichia coli*
+    -   *Klebsiella* species
+    -   Other enterobacterales
+    -   Other gram-negative
+-   Anaerobic bacteria
+-   Fungal (basically only *Candida* species)
+-   Contaminations
+-   Polymicrobial findings
+
+```{r determine_episodes}
+micro_data <- micro_data %>% flag_contaminants()
+micro_data <- micro_data %>% determine_episodes()
+micro_data <- micro_data %>% flag_polymicrobial()
+episode_data <- deduplicate_data(micro_data)
+micro_data <- micro_data %>% select(-c(sample_taken_on_index_day, relevant_finding, contaminant_finding, no_of_unique_relevant_findings, no_of_unique_contaminants, finding2, no_of_unique_findings))
+
+episode_data <- clean_episode_data(episode_data)
+
+# This is the complete microbiology file - saved for later
+write_parquet(micro_data, sink = here("data", "processed_data", "micro_data.parquet"))
+
+```
+
+### Data management of other data
+
+##### Hospitalisation data
+
+Hospitalisation data was cleaned and added to the episode data. A hospitalisation was considered linked to a suspected BSI episode if the index date was in the time period of three days before hospital admission to hospital discharge. If there were several hospitalisations in the three days preceding index date, these were all considered linked to the same episode, using the first admission date and the last discharge date. For all hospitalisations, we added the admission and discharge dates, and calculated length-of-stay (LOS). In addition, we added the variable "recent hospitalisation", defined as an inpatient stay in the preceding 90 days, excluding the index hospitalisation. We also defined the variable "nosocomial" - whether the index culture had been obtained \> 48 hours after admission.
+
+```{r clean_and_add_hospitalisation_data}
+clean_hosp_data(hf1 = here("data", "converted_parquet", "Melior_SlutenVardtillfalle.parquet"),
+                hf2 = here("data", "converted_parquet", "Melior_Vardtillfalle365InnanProv_MinusIndexVtf.parquet"))
+
+
+episode_data <- add_hosp_data(
+  df = episode_data, 
+  cleaned_hosp_file = here("data", "processed_data", "hosp_data.parquet"),
+  max_win = 3)
+
+episode_data <- episode_data %>% add_recent_hospitalisation(here("data", "processed_data", "hosp_data.parquet"), period = 90)
+
+episode_data <- episode_data %>% mutate(
+  nosocomial = sample_datetime %within% interval(hosp_start + hours(48), hosp_stop))
+
+```
+
+##### Dialysis data
+
+We added data on dialysis as this group is highly prone to BSIs. Dialysis data was cleaned, but did not seem complete, as there were virtually no patients with dialysis dates more than once a month. We considered the documentation to be incomplete. Therefore, we prioritised the first date of dialysis. If this date was before or on the index date of each culturing episode, the patient was considered to have had chronic dialysis before the current episode. However, this may have misclassified a few patients that have been on and off dialysis. e.g. those having undergone transplantation.
+
+```{r clean_dialysis_data}
+clean_dialysis_data(here("data", "converted_parquet", "Melior_Enval_Dialys.parquet"))
+episode_data <- episode_data %>% add_dialysis_data(here("data", "processed_data", "dialysis_data.parquet"))
+```
+
+##### Medications data
+
+All medications for two months before or after the index date were retrieved. Data was cleaned to include anatomical therapeutical classification (ATC) group, drug name and date of collection / administration. From this data we added the variable "antibiotics before" - defined as the collection / administration of a drug within ATC group J01 - "antibacterials for systemic use" during the 1-14 days preceding the index date. We also added "immunosuppression before", defined as collection / administration of a drug within ATC groups L01 or L04 for two months preceding the index date. Both these variables were considered potential confounders, i.e., associated with both TTP and patient outcome, which is why they were included.
+
+```{r add_medication_data}
+clean_meds_before()
+episode_data <- episode_data %>% add_ab_immuno_before(here("data", "processed_data", "meds_before_data.parquet"))
+```
+
+##### Diagnosis data
+
+Diagnosis data was cleaned and combined into one file, containing diagnosis date, diagnosis code (ICD-10), diagnosis text, and hospitalisation id. We searched for diagnoses of chronic diseases during the index hospitalisation and the 365 days preceding culturing date for each episode. These were used to estimate the Charlson comorbidity index, according to a previous validation for Swedish healthcare registers.[@ludvigsson2021] This was used as a combined measure of comorbidity but the Charlson index lacks several important risk factors for BSI, why we also categorised comorbidities further, the full documentation including specific ICD-10 codes is found in the `add_comorbidities()` function at <https://www.github.com/gtorisson>
+
+```{r clean_add_diagnosis_data}
+
+clean_diagnosis_data()
+episode_data <- episode_data %>% add_charlson(here("data", "processed_data", "diagnosis_data.parquet"))
+episode_data <- episode_data %>% add_comorbidities(here("data", "processed_data", "diagnosis_data.parquet"))
+```
+
+##### Laboratory values
+
+Raw lab data included lab values and time stamps. We filtered this lab data and included the prespecified parameters with CRP and Procalcitonin being related to inflammation and Lactate, Creatinine, Bilirubin and Platelets to organ failure, with the latter three included in the sequential organ failure assessment (SOFA) score.[@vincent1996] We excluded all samples taken in other locales than blood (e.g., lactate from cerebrospinal fluids). When a value had a floor or ceiling result, e.g. a CRP of "\<5 mg/L" we removed the "\<" sign and the value was considered to be 5 mg/L.
+
+##### Using laboratory values to approximate culturing time.
+
+The index date of blood cultures was available in all cases. However, the exact time of culturing was not always provided. For some of our analyses, we needed a baseline time which should be as exact as possible. Therefore, if the culturing time had not been provided, we noted whether other blood samples had been obtained on the index date and presumed that blood cultures had been taken at the same time, with the same venepuncture. If no other blood samples had been obtained, we noted whether the hospitalisation had started on the index date and presumed that blood cultures had been obtained at the same time (at least not before) as the hospitalisation started.
+
+##### Determining baseline lab values
+
+When the culturing time had been established, the difference in time from culturing was estimated for each lab result. We defined baseline lab values as those obtained within ± 24 hours from the time of blood culturing. If several were available, the one closest in time to culturing time was prioritised as the baseline value.
+
+```{r clean_lab_data, warning=FALSE}
+# define which labs
+lab_list <- c("P-Kreatinin|CRP|P-Laktat|B-Laktat|Prokalcitonin|Bilirubin|Trombocyter")
+# clean and save lab data
+clean_lab_data(original_df = episode_data, raw_lab_data = here("data", "converted_parquet", "Melior_Labanalyssvar.parquet"), lab_list =  lab_list)
+episode_data <- episode_data %>% fix_culture_time(lab_file_parquet = here("data", "processed_data", "lab_data.parquet"))
+episode_data <- episode_data %>% add_baseline_lab(lab_file = here("data", "processed_data", "lab_data.parquet"), time_frame = 24)
+
+
+```
+
+##### Vital signs
+
+Data on vital signs is recorded using the NEWS2 scoring system in Skåne (NEWS = National Early Warning Score), including heart rate, blood pressure, respiratory rate, oygen saturation, temperature, mental alteration, and an aggregate NEWS2 score. This data contained vital sign values as well as time stamps. There were several issues with this data:
+
+-   Missing data: the first vital signs when arriving at hospital are typically noted on paper during triage and not included in the database. Therefore, the important first vital signs are most likely missing in many cases. In addition, the ICUs document vital signs continously on sheets and do not register NEWS2. This could have introduced selection bias, where the group with missing NEWS2 values may not be representative.
+
+-   Data quality: There were quite a few implausible values, most likely due to entry errors (negative temperature etc.). Values outside plausible limits (seen in the `clean_news_data()` function) were filtered and considered NA. There was a misspecification in obstretric NEWS for blood pressure, which we corrected. Different scales (RLS and ACVPU) were used for mental alteration, why this was dichotomised.
+
+```{r clean_news_data}
+
+clean_news_data(episode_data, raw_news_data = here("data", "converted_parquet", "Melior_Tal.parquet"))
+episode_data <- episode_data %>% add_baseline_news(news_file = here("data", "processed_data", "news_data.parquet"),time_frame = 24)
+```
+
+##### Patient outcomes
+
+We recorded two patient outcomes, mortality and ICU admission. Vital status was determined on March 12 2024 and ICU admission was noted along with date and we only included ICU admissions starting at or after the index date (blood cultures obtained in patients already in the ICU were not considered to have an ICU admission outcome). These were used to determine in-hospital mortality, 30-day mortality, 30-day ICU admissions. However, the primary patient outcome was "ICU admission or death within 30 days", which we think is the best representation of disease severity. For the primary analysis, we considered one non-missing value (of deceased at 30 days or icu admission within 30 days) enough for this variable, but as a sensitivity analysis we required both to be non-missing.
+
+```{r clean_outcome_data}
+
+clean_outcome_data(
+  deceased_file = here("data", "converted_parquet", "RS_Pat_Alias_Kon_Avliden.parquet"),
+  icu_file = here("data", "converted_parquet", "Melior_SlutenVardtillfalle.parquet"))
+
+episode_data <- episode_data %>% 
+  add_vital_status(outcome_file_path = here("data", "processed_data", "outcome_data.parquet")) 
+
+episode_data <- episode_data %>% add_icu(here("data", "processed_data", "outcome_data.parquet")) 
+
+
+
+```
+
+## Statistical analysis
+
+### Epidemiological analysis
+
+We have previously described BSI epidemiology in the region in detail.[@Ljungquist2023] However, we aimed to provide a summary here of culturing frequency, positivity rate, the effect of 30-day deduplication and an incidence estimate, to facilitate comparisons with other settings.
+
+### General thoughts on categorised vs continuous TTP
+
+One of our main hypotheses was that TTP had a non-linear association with outcome. Therefore, we generally aimed to use continuous methods. The downside of this is that such methods often require graphical interpretation rather than well known measures of association and hypothesis testing such as Odds ratios, p values etc. Therefore, we aimed to provide both methods whenever possible and appropriate. However, we consider continuous modelling superior from a mechanisitic and a statistical perspective.
+
+### TTP vs baseline characteristics
+
+Using the TTP cutoff in a large recent study (10 hours) we compared baseline characteristics for three groups: "Negative", "ttp ≤ 10 hours", "ttp \> 10 hours". As our material is quite large, even clinically meaningless differences may reach statistical significance why no hypothesis testing was done. All baseline characteristics were chosen due to possibly confounding potential and were later included in the adjusted analyses.
+
+### TTP vs disease severity at baseline
+
+For baseline disease severity markers (laboratory values and vital signs), we constructed scatterplots with a regression fit using a GAM (generalized additive model) smoother including 95% confidence intervals. We considered a continuous vs continuous analysis the most appropriate here. However, we also provided a table of categorised TTP vs disease severity as well, including hypothesis tests (Mann-Whitney if continuous, Chi-square if categorical) for easier interpretation.
+
+### TTP vs disease severity in the first 72 hours.
+
+For this analysis, we plotted a scatterplot with hours from blood culture on the x axis and the value of disease severity markers on the y axis. We included all available values, thus some patients may not contribute at all (if the disease severity marker was not obtained) while others will have many repeated measures. The aim was to try to determine the change over time in the first three days. We used the three global TTP strata and again used the GAM model. As an alternative to the GAM model, we also provide mean values for every 4-hour period during the first 72 hours for easier interpretation.
+
+### Exploring a non-linear association between TTP and 30-day mortality
+
+As stated before, we aimed to explore a global, non-linear association between TTP (continuous) and 30-day mortality (dichotomous). First, we plotted a scatterplot with a locally estimated scatterplot smoother (LOESS), using a span of 0.75 and a 95% confidence intervals. For comparison, we also used a generalized additive model (GAM) with a penalized cubic regression spline, as well as a logistic regression using a five-knot restricted cubic spline. The reason for using several methods was 1) to determine how congruent they were and 2) to enable comparisons of model fit, using the logistic regression with a spline fit. To compare with modelling in previous studies, we also estimated the association using a logistic regression with TTP as a continuous variable and a categorised variable using the global TTP cutoff of 10 hours. These models, linear, categorised and spline were compared using a Likelihood ratio test, to evaluate which one had the best model fit.
+
+### TTP vs outcome
+
+We provide crude rates for the outcomes based on the TTP cutoff at 10 hours. As a sensitivity analysis, we also changed this cutoff to 9, 8, and 7 hours, respectively. In addition, we provide Odds ratios from logistic regression using the TTP cutoff at 10 hours, with 95% confidence interval to quantify risk differences. For the outcome mortality or ICU we performed a sensitivity analysis without those cases with missing ICU status (see exploratory data analysis below). The logistic regression was also adjusted for all baseline characteristics to adjust for confounders, e.g. receiving antibiotics before culture. To plot this, we also provide three-dimensional cumulative hazard plots where the proportion with outcome is plotted on the z axis, TTP on the x axis and follow-up time on the y axis.
+
+### TTP vs disese severity, stratified by species
+
+Previous studies have shown that TTP varies with species, in line with the fact that pathogens have different growth rates (e.g. fast for streptococci, slow for Candida). We described the median and interquartile range for our pathogen categories. In addition, we determined the association with disease severity across these pathogen categories, using separate TTP cutoffs for each pathogen category (the first quartile of TTP vs Q2-Q4), as done in the study by Laupland et al.[@laupland2024a]
+
+### Sensitivity analysis 1: hospitals without on-site cabinets
+
+We performed a separate analysis for sites without on-site cabinets, using the non-linear plot of TTP vs 30-day mortality. The rationale to examine the effect of longer transportation times on this association
+
+### Sensitivity analysis 2: pediatric bottles
+
+We performed a separate analysis in pediatric bottles. These may be filled with a smaller initial blood volume, and often only one bottle is used.
+
+\pagebreak
+
+# 3. Exploratory data analysis
+
+In exploratory data analysis, we screened all variables for missing values, implausible values and determined the distribution of categorical and continuous variables.
+
+```{r results_start, eval = T, cache = F}
+micro_data <- read_parquet(here("data", "processed_data", "micro_data.parquet"))
+episode_data <- read_parquet(here("data", "processed_data", "episode_data.parquet")) 
+df <- episode_data %>% filter(has_cabinet) # this is the dataframe with only on-site cabinets
+df_w_contaminants <- df # to get at dataframe with contaminants
+df <- df %>% 
+  mutate(finding = ifelse(!is.na(contaminant) & contaminant, "Negative", finding),
+         ttp = ifelse(!is.na(contaminant) & contaminant, NA, ttp),
+         ttp_strata = ifelse(!is.na(contaminant) & contaminant, "Negative", ttp_strata))
+
+bottles <- micro_data %>% # this is the number of bottles
+  mutate(bottle_id = paste(labnr, bottle)) %>% 
+  distinct(bottle_id) %>% 
+  nrow()
+
+pop_skane_2022 <- (1402425 + 1414324 + 1421781) / 3 #hard-coded population of Skåne 2021, 2022, and 2023.
+```
+
+## Epidemiology
+
+In total, there were `r bottles` blood culture bottles obtained in Skåne from 2021 to 2023, representing `r n_distinct(micro_data$labnr)` blood cultures sets, equivalent to an annual culturing rate of `r round(n_distinct(micro_data$labnr) / (pop_skane_2022*3) * 100000,0)` sets per 100.000 inhabitants. After 30-day deduplication from the index culture, `r n_distinct(episode_data)` unique suspected BSI episodes remained. These represented `r sum(episode_data$contaminant == FALSE, na.rm = T)` separate BSI episodes after removal of contaminants, and an annual incidence rate of `r round(sum(episode_data$contaminant == FALSE, na.rm = T) / pop_skane_2022/3 * 100000, 0)` per 100.000 inhabitants, very similar to previously published data from the region.[@Ljungquist2023] Of the `r n_distinct(episode_data)` culturing episodes, `r paste(df %>% filter(has_cabinet) %>% n_distinct(), " (", label_percent()((df %>% filter(has_cabinet) %>% n_distinct()) / n_distinct(episode_data)), ")", sep ="")` were obtained in hospitals with on-site cabinets and constituted the final study sample.
+
+## Microbiology data
+
+#### Estimating the time of sampling
+
+Sample date was available for all `r sum(!is.na(df$sample_date))` episodes and was evenly distributed over time. However, sample time was not always provided and was therefore estimated using the time of other blood samples or the hospitalisation start, as described earlier.
+
+```{r table_1_sources_of_sample_time, eval = T}
+
+kable(df %>% 
+        group_by(culture_source_priority) %>% 
+        summarise(count = n(), label_percent()(count / nrow(df))),
+      format = "latex",
+      align = "lrr", 
+      booktabs = TRUE,
+      linesep = "",
+      col.names = c("Source of culture time data", "count", "% of total")) %>% 
+
+  kable_styling(
+    font_size = 9,
+    position = "left",
+    latex_options = "HOLD_position") %>% 
+  kableExtra::footnote(general = "", general_title = "Table 1. Source of information regarding timing of blood cultures")
+
+```
+
+#### Findings
+
+In the deduplicated dataset, microbiological findings were available in all `r nrow(df)` episodes, with `r paste(sum(df_w_contaminants$finding != "Negative"), " (", label_percent(accuracy = 0.1L) (sum(df_w_contaminants$finding != "Negative") / nrow(df)), ")", sep = "")` being positive. Of the positive findings, `r sum(df$contaminant, na.rm = T)` were considered contaminants, and `r sum(!df$contaminant, na.rm = T)` relevant findings. Of the relevant findings, `r sum(df$bacteria_topten == "polymicrobial", na.rm = T)` were polymicrobial, i.e. had two or more relevant findings.
+
+```{r table_2_pathogens, eval = T}
+df %>% 
+  mutate(bacteria_topten = ifelse(bacterial_class == "Anaerobic", "Anaerobic bacteria",
+                                  str_to_sentence(bacteria_topten))) %>% 
+  filter(!contaminant, !is.na(bacteria_topten)) %>% 
+  group_by(bacteria_topten) %>% 
+  summarise(count = n(),
+            pct = label_percent(accuracy = 0.1L)(count / sum(!df$contaminant, na.rm = T))) %>% 
+  arrange(desc(count)) %>% 
+  kable(
+    align = "lrr", 
+    format = "latex", 
+    linesep = "", 
+    booktabs = TRUE, 
+    col.names = c("Pathogen", "count", "% of relevant findings")) %>% 
+  kable_styling(
+    font_size = 9, 
+    position = "left",
+    latex_options = "HOLD_position") %>% 
+  kableExtra::footnote(general = "", general_title = "Table 2. Distribution of relevant pathogens in BSI episodes in Skåne 2021-2023")
+
+
+```
+
+#### Time to positivity
+
+Time to positivity was available in `r paste(sum(!is.na(df$ttp)), "/", sum(df$finding != "Negative"), " (", label_percent(accuracy = 0.1)(sum(!is.na(df$ttp)) / sum(df$finding != "Negative")), ")", sep ="")` of the BSI episodes and the distribution was left skewed, as seen in figure 2.
+
+```{r, figure_2_ttp_histogram, eval = T, fig.pos = "H", out.extra = "", fig.cap = "Distribution of time to positivity in BSI episodes"}
+
+df %>% 
+  filter(finding != "Negative") %>% 
+  ggplot(aes(x = ttp)) +
+  geom_histogram(fill = "#0099B4FF", col = "black", size = 0.1, bins = 80, alpha = .5) +
+  scale_x_continuous(limits = c(0,100)) +
+  labs(x = "Time to positivity (hours)",
+       y = "Count") +
+  theme_GT()
+
+```
+
+### TTP in sites with vs without on-site cabinets
+
+Previous studies have showed that time to incubation has a inverted effect on TTP, defined as time under incubation, as the bacteria in the bottle start to multiply in room temperature before being incubated.[@rönnberg2013] Therefore, we compared hospitals with on-site cabinets with those without on-site cabinets (with longer transportation in room temperature). Upon comparison, it was clear that TTP in the hospitals with on-site culturing cabinets differed from those without. In hospitals with cabinets, transfer time was much shorter and more consistent. In these hospitals, TTP was also longer and more consistent. When dichotomised, the proportion with short TTP was much higher and variable in hospitals without on-site cabinets. Thus, we considered it inappropriate to include data from hospitals without on-site cabinets.
+
+```{r figure_3_transfer_time_by_site_boxplot, eval = T, fig.pos = "H", out.extra = "", fig.cap = "Transfer time in hours from venepuncture to start of incubation by hospital site and on-site cabinet status", fig.width = 4}
+
+episode_data %>% 
+  mutate(hospital = to_sentence_case(hospital)) %>% 
+  filter(!is.na(hospital)) %>% 
+  mutate(transfer_time = as.numeric(difftime(incubation_start, sample_datetime, units = "hours")),
+         hospital = factor(hospital)) %>% 
+  ggplot(aes(x = reorder(hospital, has_cabinet), y = transfer_time)) +
+  geom_boxplot(aes(fill = has_cabinet), outliers = F, alpha = 0.7) +
+  labs(y = "Transfer time (hours)",
+       x = "Hospital site",
+       fill = "On-site cabinet") +
+  scale_fill_lancet() +
+  scale_y_continuous(limits = c(0,30)) +
+  theme_GT() + 
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust = 0),
+        legend.position = "right")
+
+
+```
+
+```{r figure_4_TTP_by_site_boxplot, eval = T, fig.width = 4.5, fig.pos = "H", out.extra = "", fig.cap = "Time to positivity by hospital site and on-site cabinet status. The plot includes *Escherichia coli* only (to avoid bias due to differences in prevalence of species)"}
+
+
+episode_data %>% 
+  filter(finding == "Escherichia coli") %>% 
+  mutate(hospital = to_sentence_case(hospital)) %>%
+  ggplot(aes(y = ttp, x = reorder(hospital, has_cabinet))) + 
+  geom_boxplot(aes(fill = has_cabinet), outliers = FALSE, alpha = 0.7) +
+  labs(y = "Time to positivity",
+       x = "Hospital site",
+       fill = "On-site cabinet") +
+  scale_fill_lancet() +
+  coord_cartesian(ylim = c(0,20)) +
+  theme_GT() +
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust = 0))
+
+
+```
+
+```{r table_3_ttp_by_site_table, eval = T}
+
+
+ttp_table <- episode_data %>% 
+  filter(!is.na(hospital)) %>% 
+  mutate(hospital = to_sentence_case(hospital)) %>% 
+  group_by(hospital, has_cabinet) %>% 
+  summarise(count = sum(!is.na(ttp)),
+            median_ttp = median(ttp, na.rm = T),
+            ttp_below_10 = sum(ttp <= 10, na.rm = T),
+            prop_below = label_percent()(ttp_below_10/count)) %>%
+  select(-count, -ttp_below_10) %>% 
+  arrange(desc(median_ttp))
+
+
+kable(ttp_table, 
+      align = "lrrr", 
+      col.names = c("Hospital", "Has cabinet", "Median TTP (hrs)", "% with TTP ≤ 10 hours"),
+      format = "latex", 
+    linesep = "", 
+    booktabs = T) %>% 
+  kable_styling(
+    font_size = 9, 
+    position = "left",
+    latex_options = "HOLD_position") %>% 
+      row_spec(which(!ttp_table$has_cabinet), background = "lightgray") %>% 
+    kableExtra::footnote(general = "", general_title = "Table 3. Time to positivity in hospitals by cabinet status")
+
+```
+
+\pagebreak
+
+## Other baseline data
+
+#### Demographic data
+
+Age had no missing data and ranged from `r min(df$age)` to `r max(df$age)` years, with a median of `r median(df$age)` years. As expected, the distribution showed a spike of newborn and older persons. Sex was also complete with `r paste(sum(df$sex == "Male"), " (", label_percent()(sum(df$sex == "Male") / nrow(df)), ")", sep = "")` being males. Site data was available for all `r sum(!is.na(df$hospital))` episodes.
+
+```{r fig_5_age_histogram, eval = T, fig.pos = "H", out.extra = "", fig.cap = "Age distribution of suspected BSI episodes in Skåne Region 2021-2023, *N* = 89546", fig.width = 4, fig.height = 3, fig.align='left'}
+
+
+df %>% ggplot(aes(x = age)) +
+  geom_bar(width = 0.85, fill = "#0099B4FF", col = "black", linewidth = 0.2, alpha = 0.55) +
+  labs(x = "Age (years)") +
+  scale_y_continuous(breaks = c(0,500,1000,1500,2000,2500)) +
+  theme_GT() 
+```
+
+#### Hospitalisation data
+
+The suspected BSI episode could be linked to an in-hospital stay in `r paste(sum(!is.na(df$hosp_id)), " (", label_percent(accuracy = 0.1)(sum(!is.na(df$hosp_id)) / nrow(df)), ")", sep = "")` episodes, with a median length-of-stay of `r round(median(as.numeric(difftime(df$hosp_stop, df$hosp_start, units = "days")), na.rm = T),1)` days. In the other suspected BSI episodes, the blood cultures had been obtained in an outpatient setting, without a related hospital admission (e.g., a hospital-at-home program or in palliative home care). In total, `r paste(sum(df$nosocomial,na.rm = T), " (", label_percent(accuracy = 0.1)(sum(df$nosocomial, na.rm = T) / nrow(df)), ")", sep = "")` episodes were labelled nosocomial, i.e. the culture had been obtained \> 48 hours from admission, and the patient had been recently hospitalised in `r paste(sum(df$hosp_before,na.rm = T), " (", label_percent(accuracy = 0.1)(sum(df$hosp_before, na.rm = T) / nrow(df)), ")", sep = "")` episodes.
+
+#### Comorbidities
+
+We used ICD-10 codes from the linked hospitalisation and for the year preceding index date to determine comorbidities. Missing diagnoses were labelled absent and thus this data was complete. The most common comorbidities were hypertension and chronic cardiac disease.
+
+```{r table_3_comorbidities, eval = T}
+df %>% select(cardiac_disease:hepatic_disease) %>%  
+  pivot_longer(2:ncol(.), names_to = "disease_category", values_to = "value") %>% 
+  group_by(disease_category) %>% 
+  summarise(count = sum(value == 1),
+            pct = label_percent() (count / nrow(df))) %>% 
+  arrange(desc(count)) %>%
+  mutate(disease_category = to_sentence_case(disease_category)) %>% 
+  kable(align = "lrr",
+        format = "latex", 
+        linesep = "", booktabs = T, 
+        col.names = c("Comorbidity", "count", "% of episodes")) %>% 
+  kable_styling(
+    font_size = 9, 
+    position = "left",
+    latex_options = "HOLD_position") %>% 
+  kableExtra::footnote(general = "", general_title = "Table 3. The most common comorbidities at suspected BSI episodes")
+
+```
+
+We also estimated Charlson comorbidity index from diagnostic codes; the median Charlson index was `r median(df$cci_points,na.rm = T)` points, ranging from `r min(df$cci_points, na.rm = T)` to `r max(df$cci_points, na.rm = T)`, with `r paste(sum(df$cci_points == 0, na.rm = T), " (", label_percent(accuracy = 0.1)(sum(df$cci_points == 0, na.rm = T) / sum(!is.na(df$cci_points))), ")", sep = "")` patients having 0 points.
+
+```{r fig_6_charlson_histogram, eval = T, fig.pos = "H", out.extra = "", fig.cap = "Distribution of Charlson comorbidity index score",  fig.align = "left", fig.width = 4, fig.height = 3}
+
+#fig.width = 4.5,
+
+ggplot(df, aes(x = cci_points)) +
+  geom_histogram(fill = "#0099B4FF", col = "black", bins = max(df$cci_points, na.rm = T),
+                 size = 0.2, alpha = 0.5) +
+  labs(y = "Count", x = "Charlson comorbidity index (points)") +
+  theme_GT()
+```
+
+\pagebreak
+
+## Disease severity markers
+
+#### At baseline
+
+We included C-reactive protein, lactate and procalcitonin as inflammatory biomarkers. In addition, bilirubin, creatinine, and platelets where included as markers of organ dysfunction and since they are included in the SOFA score. Among laboratory values, CRP and creatinine were most commonly taken at baseline (within ± 24 hours of culturing time), see table. Approximately two thirds of the patients had registered vital signs within ± 24 hours from blood cultures in the database. This may seem low but could be dependent on the issues described regarding raw data on vital signs above.
+
+```{r table_4_prevalence_baseline_severity_markers, eval = T}
+df %>% 
+  select(crp:news_total_score) %>% # these are all within 24 hours
+  pivot_longer(2:ncol(.), names_to = "name", values_to ="value") %>% 
+  group_by(name) %>% 
+  summarise(valid = sum(!is.na(value)),
+            pct = label_percent()(valid / nrow(df))) %>% 
+  arrange(order(df %>% ungroup() %>% select(crp:news_total_score) %>% names())) %>% 
+  mutate(name = to_sentence_case(name)) %>% 
+  kable(align = "lrr",
+        format = "latex", 
+        linesep = "", 
+        booktabs = T,
+        col.names = c("", "Count", "% of episodes")) %>% 
+  kable_styling(
+    font_size = 9, 
+    position = "left",
+    latex_options = "HOLD_position") %>% 
+    kableExtra::footnote(general = "", general_title = "Table 4. Baseline disease severity markers ± 24 hours from sampling")
+
+```
+
+The distribution of baseline disease severity values is shown in figure 7. The timing of baseline disease severity markers is shown in figure 8. Generally, the majority of baseline lab values had been obtained at the time of culturing or slightly before, except for procalcitonin that to a larger extent was taken after the culturing. For vital signs, there was a larger timing spread, with values generally being registered after the blood cultures. The reason for this may be that initial vital signs would be missing from the database as they are noted on sheets, as stated above.
+
+```{r fig_7_distribution_baseline_severity, eval = T, fig.pos = "H", out.extra = "", fig.cap = "Distribution of disease severity markers in all suspected BSI episodes, at baseline (± 24 hours from culturing). CRP = C-reactive protein, NEWS = National Early Warning System scale, bpm = breaths per minute, SBP = Systolic blood pressure, SpO2 = peripheral oxygen saturation. Note: different scales on both axes", fig.align = "left", fig.width=6.5, fig.height=8}
+
+
+df %>% 
+  select(crp:news_total_score) %>% 
+  pivot_longer(2:ncol(.)) %>% 
+  filter(!is.na(value)) %>% 
+  group_by(name) %>% 
+  mutate(
+    name = case_when(
+    name == "crp" ~ paste("CRP, mg/L, N = ", sum(name == "crp",na.rm = T), sep = ""),
+    name == "bilirubin" ~ paste("Bilirubin, µmol/L, N = ", sum(name == "bilirubin",na.rm = T), sep = ""),
+    name == "lactate" ~ paste("Lactate, mmol/L, N = ", sum(name == "lactate",na.rm = T), sep = ""),
+    name == "platelets" ~ paste("Platelets, 10^9/L, N = ", sum(name == "platelets",na.rm = T), sep = ""),
+    name == "procalcitonin" ~ paste("Procalcitonin, µg/L, N = ", sum(name == "procalcitonin",na.rm = T), sep = ""),
+    name == "creatinine" ~ paste("Creatinine, µmol/L, N = ", sum(name == "creatinine",na.rm = T), sep = ""),
+    name == "heart_rate" ~ paste("Pulse, beats / min, N = ", sum(name == "heart_rate",na.rm = T), sep = ""),
+    name == "mental_alteration" ~ paste("Mental alteration, N = ", sum(name == "mental_alteration",na.rm = T), sep = ""),
+    name == "news_total_score" ~ paste("NEWS score, points, N = ", sum(name == "news_total_score",na.rm = T), sep = ""),
+    name == "oxygen_saturation" ~ paste("SpO2 (%), N = ", sum(name == "oxygen_saturation",na.rm = T), sep = ""),
+    name == "respiratory_rate" ~ paste("Respiratory rate, bpm N = ", sum(name == "respiratory_rate",na.rm = T), sep = ""),
+    name == "systolic_blood_pressure" ~ paste("SBP, mmHg, N = ", sum(name == "systolic_blood_pressure",na.rm = T), sep = ""),
+    name == "temperature" ~ paste("Temperature, °C, N = ", sum(name == "temperature",na.rm = T), sep = "")
+    )) %>% 
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 51, col = "black", fill = "#0099B4FF", size = 0.1, alpha = 0.5) +
+  facet_wrap(~name, scales = "free", ncol = 3) +
+  labs(x = NULL, y = "Count") +
+  theme_GT() +
+  facetted_pos_scales(
+    x = list(
+      str_detect(name, "Bilirubin") ~ scale_x_continuous(limits = c(0,60)),
+      str_detect(name,"CRP") ~ scale_x_continuous(limits = c(0, 500)),
+      str_detect(name, "Platelets") ~ scale_x_continuous(limits = c(0, 500)),
+      str_detect(name, "Procalcitonin") ~ scale_x_continuous(limits = c(0, 5)),
+      str_detect(name, "Creatinine") ~ scale_x_continuous(limits = c(0, 300)),
+      str_detect(name, "Lactate") ~ scale_x_continuous(limits = c(0, 5)),
+      str_detect(name, "Heart") ~ scale_x_continuous(limits = c(0,200)),
+      str_detect(name, "SBP") ~ scale_x_continuous(limits = c(50, 200)),
+      str_detect(name, "Respiratory") ~ scale_x_continuous(limits = c(3, 35)),
+      str_detect(name, "NEWS") ~ scale_x_continuous(limits = c(0, 15)),
+      str_detect(name, "SpO2") ~ scale_x_continuous(limits = c(80, 100)),
+      str_detect(name, "Temperature") ~ scale_x_continuous(limits = c(35, 40)),
+      str_detect(name, "Mental") ~ scale_x_continuous(limits = c(0, 1), breaks = c(0,1))
+    )
+  )
+```
+
+```{r, fig_8_timing_baseline_severity, eval = T, fig.pos = "H", out.extra = "", fig.cap = "Time between baseline disease severity markers and blood culturing in all suspected BSI episodes, CRP = C-reactive protein, NEWS = National Early Warning System scale, bpm = breaths per minute, SBP = Systolic blood pressure, SpO2 = peripheral oxygen saturation.", fig.width=6.5, fig.height=8}
+ 
+reduced_lab = read_parquet(here("data", "processed_data", "lab_data.parquet"))  %>% # we need to go here to obtain times
+  rename(time = lab_time,
+         name = lab_name, 
+         value = lab_value) %>% 
+  filter(hours_from_culture %in% c(-24:24),
+         episode_id %in% df$episode_id)  %>% 
+  group_by(episode_id, name) %>% 
+  slice_min(abs(hours_from_culture), with_ties = FALSE)
+  
+
+reduced_news = read_parquet(here("data", "processed_data", "news_data.parquet"))  %>% # we need to go here to obtain times
+  rename(time = NEWS_time,
+         name = NEWS_name, 
+         value = NEWS_value) %>% 
+  filter(hours_from_culture %in% c(-24:24),
+         episode_id %in% df$episode_id)  %>% 
+  group_by(episode_id, name) %>% 
+  slice_min(abs(hours_from_culture), with_ties = FALSE)
+
+bind_rows(reduced_lab, reduced_news) %>% 
+  group_by(episode_id, name) %>% 
+  slice_min(abs(hours_from_culture), with_ties = FALSE) %>% 
+  group_by(name) %>% 
+  mutate(name = case_when(
+    name == "CRP" ~ paste("CRP, mg/L, N = ", sum(name == "CRP",na.rm = T), sep = ""),
+    name == "Bilirubin" ~ paste("Bilirubin, µmol/L, N = ", sum(name == "Bilirubin",na.rm = T), sep = ""),
+    name == "Lactate" ~ paste("Lactate, mmol/L, N = ", sum(name == "Lactate",na.rm = T), sep = ""),
+    name == "Platelets" ~ paste("Platelets, 10^9/L, N = ", sum(name == "Platelets",na.rm = T), sep = ""),
+    name == "Procalcitonin" ~ paste("Procalcitonin, µg/L, N = ", sum(name == "Procalcitonin",na.rm = T), sep = ""),
+    name == "Creatinine" ~ paste("Creatinine, µmol/L, N = ", sum(name == "Creatinine",na.rm = T), sep = ""),
+    name == "Heart rate" ~ paste("Pulse, beats / min, N = ", sum(name == "Heart rate",na.rm = T), sep = ""),
+    name == "Mental alteration" ~ paste("Mental alteration, N = ", sum(name == "Mental alteration",na.rm = T), sep = ""),
+    name == "NEWS total score" ~ paste("NEWS score, points, N = ", sum(name == "NEWS total score",na.rm = T), sep = ""),
+    name == "Oxygen saturation" ~ paste("SpO2 (%), N = ", sum(name == "Oxygen saturation",na.rm = T), sep = ""),
+    name == "Respiratory rate" ~ paste("Resp rate, bpm N = ", sum(name == "Respiratory rate",na.rm = T), sep = ""),
+    name == "Systolic blood pressure" ~ paste("SBP, mmHg, N = ", sum(name == "Systolic blood pressure",na.rm = T), sep = ""),
+    name == "Temperature" ~ paste("Temperature, °C, N = ", sum(name == "Temperature",na.rm = T), sep = ""))) %>% 
+  ggplot(aes(x = hours_from_culture)) +
+  geom_histogram(bins = 50, size = 0.1, fill = "#0099B4FF", col = "black", alpha =.5) +
+  facet_wrap(~name, scales = "free_y", ncol = 3) +
+  labs(x = "Time from culture (hours)",
+       y = "Count") +
+  theme_GT()
+
+
+```
+
+#### Disease severity markers up to 72 hours
+
+When the time period was extended to 72 hours after culturing, almost all patient had at least one CRP value taken. Lactate was the lab value most often taken repeatedly. Vital signs were recorded more frequently (often 4 times per day) as compared to the laboratory values.
+
+```{r, table_5_repeated_lab_table, eval = T}
+
+lab_table <- read_parquet(here("data", "processed_data", "lab_data.parquet"))  %>% 
+  rename(name = lab_name,
+         value = lab_value) %>% 
+  filter(hours_from_culture %in% c(-24:72)) %>% 
+  filter(!is.na(name)) %>% 
+  filter(episode_id %in% df$episode_id) %>% 
+  group_by(name) %>% 
+  summarise(
+    all = n_distinct(df),
+    count_samples = n(),
+    count_episodes = n_distinct(episode_id),
+    pct = paste(round(count_episodes / all * 100,0), " %", sep = ""),
+    samples = round(count_samples / count_episodes,1)) %>% 
+  select(-all)
+
+news_table <- read_parquet(here("data", "processed_data", "news_data.parquet"))  %>% 
+  rename(name = NEWS_name,
+         value = NEWS_value) %>% 
+  filter(hours_from_culture %in% c(-24:72)) %>% 
+  filter(!is.na(name)) %>% 
+  filter(episode_id %in% df$episode_id) %>% 
+  group_by(name) %>% 
+  summarise(
+    all = n_distinct(df),
+    count_samples = n(),
+    count_episodes = n_distinct(episode_id),
+    pct = paste(round(count_episodes / all * 100,0), " %", sep = ""),
+    samples = round(count_samples / count_episodes,1)) %>% 
+  select(-all)
+
+dplyr::bind_rows(lab_table, news_table) %>% 
+knitr::kable( 
+             format = "latex", 
+             linesep = "", 
+             booktabs = T,
+             col.names = c("Marker", "Results", "Episodes", "Percent", "Average samples / episode"), 
+             align = "lrrrr") %>% 
+  kable_styling(
+        font_size = 9, 
+        position = "left",
+        latex_options = "HOLD_position") %>% 
+    kableExtra::footnote(general = "", general_title = "Table 5. Disease severity markers up to 72 hours after blood cultures")
+```
+
+## Outcomes
+
+#### Mortality
+
+Data on 30-day mortality was available in `r paste(sum(!is.na(df$deceased_30)) ," / ", nrow(df), " (", label_percent(accuracy = 0.1L)(sum(!is.na(df$deceased_30)) / nrow(df)), ")", sep = "")` suspected BSI episodes. The reason for missingness here is unknown - patients were not available in regional registers at the point of follow-up. This could have been due patients having moved outside the region and thus being inaccessible for follow-up. We considered these to be missing at random and used complete case analysis. The overall 30-day mortality in patients with suspected BSI was `r paste(sum(df$deceased_30, na.rm = T) ," / ", sum(!is.na(df$deceased_30)), " (", label_percent(accuracy = 0.1L)(sum(df$deceased_30, na.rm = T) / sum(!is.na(df$deceased_30))), ")", sep = "")`. Among the patients with confirmed BSI and available mortality data, the mortality rate was `r paste(sum(df$deceased_30 & df$finding != "Negative", na.rm = T) ," / ", sum(!is.na(df$deceased_30) & df$finding != "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df$deceased_30 & df$finding != "Negative", na.rm = T) / sum(!is.na(df$deceased_30) & df$finding != "Negative")), ")", sep = "")`.
+
+#### ICU
+
+Data on ICU admission within 30 days was available in `r paste(sum(!is.na(df$icu_30)) ," / ", nrow(df), " (", label_percent(accuracy = 0.1L)(sum(!is.na(df$icu_30)) / nrow(df)), ")", sep = "")` suspected BSI episodes. The reason for missingness here was an misspecification in the data retrieval phase, resulting in missing ICU outcome in nosocomial cases. In total, `r paste(sum(df$icu_30 == 1, na.rm = T) ," / ", sum(!is.na(df$icu_30)), " (", label_percent(accuracy = 0.1L)(sum(df$icu_30 == 1, na.rm = T) / sum(!is.na(df$icu_30))), ")", sep = "")` episodes resulted in ICU admission within 30 days. Among patients with a confirmed BSI, the ICU admission rate was `r paste(sum(df$icu_30 == 1 & df$finding != "Negative", na.rm = T) ," / ", sum(!is.na(df$icu_30) & df$finding != "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df$icu_30 == 1 & df$finding != "Negative", na.rm = T) / sum(!is.na(df$icu_30) & df$finding != "Negative")), ")", sep = "")`.
+
+#### Mortality or ICU admission
+
+When we used the first definition (stating that one non-missing outcome was enough), data on 30-day mortality or ICU admission was available in `r paste(sum(!is.na(df$dead_or_icu_30)) ," / ", nrow(df), " (", label_percent(accuracy = 0.1L)(sum(!is.na(df$dead_or_icu_30)) / nrow(df)), ")", sep = "")` episodes. In total, `r paste(sum(df$dead_or_icu_30 == 1, na.rm = T) ," / ", sum(!is.na(df$dead_or_icu_30)), " (", label_percent(accuracy = 0.1L)(sum(df$dead_or_icu_30 == 1, na.rm = T) / sum(!is.na(df$dead_or_icu_30))), ")", sep = "")` episodes resulted in death or ICU admission within 30 days. Among patients with a confirmed BSI, the ICU admission rate was `r paste(sum(df$dead_or_icu_30 == 1 & df$finding != "Negative", na.rm = T) ," / ", sum(!is.na(df$dead_or_icu_30) & df$finding != "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df$dead_or_icu_30 == 1 & df$finding != "Negative", na.rm = T) / sum(!is.na(df$dead_or_icu_30) & df$finding != "Negative")), ")", sep = "")`.
+
+When we used the second definition (stating that both outcomes had to be non-missing for a valid result), data on 30-day mortality or ICU admission was available in `r paste(sum(!is.na(df$dead_or_icu_30_2)) ," / ", nrow(df), " (", label_percent(accuracy = 0.1L)(sum(!is.na(df$dead_or_icu_30_2)) / nrow(df)), ")", sep = "")` episodes. In total, `r paste(sum(df$dead_or_icu_30_2 == 1, na.rm = T) ," / ", sum(!is.na(df$dead_or_icu_30_2)), " (", label_percent(accuracy = 0.1L)(sum(df$dead_or_icu_30_2 == 1, na.rm = T) / sum(!is.na(df$dead_or_icu_30_2))), ")", sep = "")` episodes resulted in death or ICU admission within 30 days. Among patients with a confirmed BSI, the ICU admission rate was `r paste(sum(df$dead_or_icu_30_2 == 1 & df$finding != "Negative", na.rm = T) ," / ", sum(!is.na(df$dead_or_icu_30_2) & df$finding != "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df$dead_or_icu_30_2 == 1& df$finding != "Negative", na.rm = T) / sum(!is.na(df$dead_or_icu_30_2) & df$finding != "Negative")), ")", sep = "")`.
+
+# 4. Results
+
+## TTP vs disease severity at baseline
+
+Time-to-positivity from 0 to 36 hours was plotted against the different disease severity markers at baseline in the main manuscript, figure 1. We considered a continuous vs continuous non-linear approach the most appropiate here, as it neither reduces nor categorises data. However, the model may be unfamiliar (the generalized additive model) and the graphical display with different y axes may be difficult to interpret. To show the findings in another way, we present a table here, where TTP is categorised, in which all severity markers were worse in patients with TTP \< 10 hours. For some parameters the differences were clinically insignifianct, albeit statistically significant.
+
+```{r ttp_vs_disease_severity_baseline_table, eval = T}
+tbl1 <- tbl_summary(
+  df %>% 
+    ungroup() %>% 
+    filter(!is.na(ttp_strata), finding != "Negative") %>% 
+    select(crp:news_total_score, ttp_strata),
+  by = ttp_strata,
+  missing = "no",
+  statistic = list(all_continuous() ~ "{median} [{p25}, {p75}]"),
+  digits = all_continuous() ~ 1,
+  label = list(
+    crp ~ "CRP, mg/L",
+    creatinine ~ "Creatinine, µmol/L",
+    lactate ~ "Lactate, mmol/L",
+    bilirubin ~ "Bilirubin, µmol/L",
+    platelets ~ "Platelets, 10^9/",
+    procalcitonin ~ "Procalcitonin, µg/L",
+    heart_rate ~ "Heart rate / min",
+    mental_alteration ~ "Mental alteration",
+    oxygen_saturation ~ "SpO2, %",
+    systolic_blood_pressure ~ "SBP, mmHg",
+    respiratory_rate ~ "Respiratory rate / min",
+    temperature ~ "Temperature, °C",
+    news_total_score ~ "NEWS, points"
+  )
+) %>%
+  add_p(pvalue_fun = ~style_pvalue(.x, digits = 3)) %>%
+  modify_header(label = "**Disease severity marker**")
+  #modify_footnote("*Table 5. TTP vs disease severity at baseline*, all values are median [Q1, Q3]") #%>% 
+ # modify_column_alignment(columns = contains("var_label"), align = "right")
+
+tbl1
+
+```
+
+## TTP vs dynamics of disease severity markers
+
+We plotted TTP vs severity markers in the first 72 hours, as seen in figure 2 in the main article. As the Generalised additive model may seem difficult to interpret, we provide the 4-hour means for the values for comparison.
+
+```{r figure_9_4_hour_mean, eval = T, fig.height = 7.7, fig.pos = "H", out.extra = "", fig.cap = "Dynamics of disease severity markers during the first 72 hours by TTP strata, displayed using Generalised additive models (line = point estimate, shade = 95% confidence interval) as well as the mean for each four-hour period (dots and lines)"}
+
+reduced_lab = read_parquet(here("data", "processed_data", "lab_data.parquet"))  %>% # we need to go here to obtain times
+  rename(time = lab_time,
+         name = lab_name, 
+         value = lab_value) %>% 
+  filter(hours_from_culture %in% c(-24:120),
+         has_cabinet) 
+
+reduced_news = read_parquet(here("data", "processed_data", "news_data.parquet"))  %>% # we need to go here to obtain times
+  rename(time = NEWS_time,
+         name = NEWS_name, 
+         value = NEWS_value) %>% 
+  filter(hours_from_culture %in% c(-24:120),
+         has_cabinet)
+
+bind_rows(reduced_lab, reduced_news) %>% 
+filter(!is.na(ttp_strata),
+         has_cabinet,
+         between(hours_from_culture, -24, 120)) %>% 
+  mutate(hours_from_culture_4 = hours_from_culture %/% 4) %>% 
+  ggplot(aes(x = hours_from_culture, y = value)) +
+  stat_smooth(aes(colour = ttp_strata, fill = ttp_strata), method = "gam", linewidth = 0.5, alpha = 0.3) + 
+  stat_summary(aes(x = hours_from_culture_4 * 4, y = value, colour = ttp_strata), geom = "point", fun = "mean") +
+  stat_summary(aes(x = hours_from_culture_4 * 4, y = value, colour = ttp_strata), geom = "line", fun = "mean") +
+  coord_cartesian(xlim = c(0,72)) + 
+  scale_x_continuous(breaks = seq(0,72, by = 24)) + 
+  scale_color_lancet() +
+  scale_fill_lancet() +
+  facet_wrap(~name, scales = "free_y", ncol = 3) +
+  labs(x = "time from culture (hours)", color = "TTP strata", fill = "TTP strata", shape = "ttp_strata",
+       y = "") + 
+  theme_GT() +
+  theme(legend.position = "top") +
+  facetted_pos_scales(
+    y = list(
+      str_detect(name, "Bilirubin") ~ scale_y_continuous(limits = c(20,55)),
+      str_detect(name, "CRP") ~ scale_y_continuous(limits = c(75, 225)),
+      str_detect(name, "Platelets") ~ scale_y_continuous(limits = c(100, 280)),
+      str_detect(name, "Procalcitonin") ~ scale_y_continuous(limits = c(0, 80)),
+      str_detect(name, "Creatinine") ~ scale_y_continuous(limits = c(100, 180)),
+      str_detect(name, "Lactate") ~ scale_y_continuous(limits = c(1.5, 4)),
+      str_detect(name, "Respiratory rate") ~ scale_y_continuous(limits = c(18,22), breaks = c(19,20,21,22), labels = scales::number_format(accuracy = 1)),
+      str_detect(name, "Systolic") ~ scale_y_continuous(limits = c(110, 130)),
+      str_detect(name, "Heart rate") ~ scale_y_continuous(limits = c(75, 100)),
+      str_detect(name, "Oxygen") ~ scale_y_continuous(limits = c(95,96)),
+      str_detect(name, "Temperature") ~ scale_y_continuous(limits = c(36.8, 38), breaks = c(37.0, 37.2, 37.4, 37.6, 37.8, 38.0)),
+      str_detect(name, "NEWS") ~ scale_y_continuous(limits = c(2, 5)),
+      str_detect(name, "Mental alteration") ~ scale_y_continuous(limits = c(0, 0.1), labels = scales::percent)))
+
+
+```
+
+## Exploring the association between TTP and 30-day mortality
+
+```{r different_models_30_day_mortality, eval = T}
+# create a temporary df with no missing TTP and no missing deceased
+temp_df <- df %>% filter(!is.na(ttp) & !is.na(deceased_30))
+
+# LOESS model
+m1 <- loess(deceased_30 ~ ttp, span = 0.75, data = temp_df)
+p1 <- predict(m1, se = TRUE)
+temp_df$loess_fit <- p1$fit
+temp_df$loess_lower <- p1$fit - 1.96* p1$se.fit
+temp_df$loess_upper <- p1$fit + 1.96* p1$se.fit
+
+# spline GLM model
+m2 <- glm(deceased_30 ~ rcs(ttp,5), family = "binomial", data = temp_df)
+p2 <- predict(m2, type = "response", se.fit = TRUE)
+temp_df$glm_spline_fit <- p2$fit
+temp_df$glm_spline_lower <- p2$fit - 1.96* p2$se.fit
+temp_df$glm_spline_upper <- p2$fit + 1.96* p2$se.fit
+
+# GAM model
+m3 <- mgcv::gam(deceased_30 ~ s(ttp, bs = "cs"), family = binomial(), data = temp_df)
+p3 <- predict(m3, type = "response", se.fit = TRUE)
+temp_df$gam_fit <- p3$fit
+temp_df$gam_fit_lower <- p3$fit - 1.96* p3$se.fit
+temp_df$gam_fit_upper <- p3$fit + 1.96* p3$se.fit
+
+# linear GLM model
+m4 <- glm(deceased_30 ~ ttp, family = "binomial", data = temp_df)
+p4 <- predict(m4, type = "response", se.fit = TRUE)
+temp_df$glm_fit <- p4$fit
+temp_df$glm_lower <- p4$fit - 1.96* p4$se.fit
+temp_df$glm_upper <- p4$fit + 1.96* p4$se.fit
+
+# categorised GLM model a
+m5 <- glm(deceased_30 ~ ifelse(ttp <= 10 , 1, 0), family = "binomial", data = temp_df)
+p5 <- predict(m5, type = "response", se.fit = TRUE)
+temp_df$glm_cat_fit <- p5$fit
+temp_df$glm_cat_lower <- p5$fit - 1.96* p5$se.fit
+temp_df$glm_cat_upper <- p5$fit + 1.96* p5$se.fit
+
+# categorised GLM model a
+m52 <- glm(deceased_30 ~ ifelse(ttp <= 9 , 1, 0), family = "binomial", data = temp_df)
+p52 <- predict(m52, type = "response", se.fit = TRUE)
+temp_df$glm_cat_fit2 <- p52$fit
+temp_df$glm_cat_lower2 <- p52$fit - 1.96* p52$se.fit
+temp_df$glm_cat_upper2 <- p52$fit + 1.96* p52$se.fit
+
+# categorised GLM model a
+m53 <- glm(deceased_30 ~ ifelse(ttp <= 8 , 1, 0), family = "binomial", data = temp_df)
+p53 <- predict(m53, type = "response", se.fit = TRUE)
+temp_df$glm_cat_fit3 <- p53$fit
+temp_df$glm_cat_lower3 <- p53$fit - 1.96* p53$se.fit
+temp_df$glm_cat_upper3 <- p53$fit + 1.96* p53$se.fit
+
+# categorised GLM model a
+m54 <- glm(deceased_30 ~ ifelse(ttp <= 7 , 1, 0), family = "binomial", data = temp_df)
+p54 <- predict(m54, type = "response", se.fit = TRUE)
+temp_df$glm_cat_fit4 <- p54$fit
+temp_df$glm_cat_lower4 <- p54$fit - 1.96* p54$se.fit
+temp_df$glm_cat_upper4 <- p54$fit + 1.96* p54$se.fit
+
+
+# ttp vs 30day mortality
+m6 <- glm(deceased_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0), family = "binomial", data = df %>% filter(ttp_strata != "Negative"))
+HR_m6 <- paste(format(round(exp(coef(m6))[[2]],2), nsmall = 2), " (", 
+               format(round(exp(confint(m6))[[2]],2), nsmall = 2),"-", 
+               format(round(exp(confint(m6))[[4]],2), nsmall = 2), ")", sep = "")
+
+# ttp vs 30-day ICU
+m7 <- glm(icu_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0), family = "binomial", data = df %>% filter(ttp_strata != "Negative"))
+HR_m7 <- paste(format(round(exp(coef(m7))[[2]],2), nsmall = 2), " (", 
+               format(round(exp(confint(m7))[[2]],2), nsmall = 2)," - ", 
+               format(round(exp(confint(m7))[[4]],2), nsmall = 2), ")", sep = "")
+
+
+
+# ttp vs 30-day dead or ICU
+m8 <- glm(dead_or_icu_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0), family = "binomial", data = df %>% filter(ttp_strata != "Negative"))
+HR_m8 <- paste(format(round(exp(coef(m8))[[2]],2), nsmall = 2), " (", 
+               format(round(exp(confint(m8))[[2]],2), nsmall = 2)," - ", 
+               format(round(exp(confint(m8))[[4]],2), nsmall = 2), ")", sep = "")
+
+
+
+# ttp vs 30-day dead or ICU w ICU missing = NA
+m9 <- glm(dead_or_icu_30_2 ~ ifelse(ttp_strata == "<= 10 hours", 1,0), family = "binomial", data = df %>% filter(ttp_strata != "Negative"))
+HR_m9 <- paste(format(round(exp(coef(m9))[[2]],2), nsmall = 2), " (", 
+               format(round(exp(confint(m9))[[2]],2), nsmall = 2)," - ", 
+               format(round(exp(confint(m9))[[4]],2), nsmall = 2), ")", sep = "")
+
+
+# model adjusted for all baseline characteristics
+m10 <- glm(dead_or_icu_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0) + 
+    age +sex + cardiac_disease + pulmonary_disease + hypertension + anemia + 
+    genitourinary_disease + dialysis + malignancy + musculoskeletal_disease +
+    neurologic_disease + psychiatric_disorder + immunodeficiency + 
+    peripheral_vascular_disease + diabetes + skin_disease + hepatic_disease + 
+    cci_points + ab_before + immunosupp_before + nosocomial +hosp_before, 
+  data = df %>% filter(ttp_strata != "Negative"), family = binomial)
+
+HR_m10 <- paste(format(round(broom::tidy(m10, exponentiate = T, conf.int = T)[[2,2]],2),nsmall = 2), " (",
+format(round(broom::tidy(m10, exponentiate = T, conf.int = T)[[2,6]],2), nsmall = 2), " - ", 
+format(round(broom::tidy(m10, exponentiate = T, conf.int = T)[[2,7]],2), nsmall = 2), ")", sep = "")
+
+
+
+```
+
+### Logistic regression using linear TTP
+
+The logistic regression model using TTP as a continuous linear predictor measured in hours found no clear overall relationship with TTP and mortality, `r paste("Odds ratio (95%CI): ", format(round(exp(coef(m4))[[2]],digits = 3),nsmall = 3), " (", format(round(exp(confint(m4))[[2]], digits = 3), nsmall = 3), "-", format(round(exp(confint(m4))[[4]], digits = 3), nsmall = 3), ")", ", p value = ", format(round(coef(summary(m4))[,4][[2]], digits = 2), nsmall = 2), sep = "")`. From what we understand, this seems to be the method used by Hamilton et al. who provide odds ratios per incremental TTP hour and found no clear overall relationship between mortality and TTP. [@hamilton2022]. The lack of association can also be seen in the plot of the predicted values from this model.
+
+```{r figure_10_linear_plot, fig.height = 2.8, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra="", fig.cap = "**Linear logistic regression model** Line = regression fit, shaded area = 95% confidence interval."}
+# linear plot
+linear_plot <- ggplot(temp_df, aes(x = ttp)) +
+  geom_line(aes(y = glm_fit, colour = "Logistic Linear"), size = 0.4) +
+  geom_ribbon(aes(ymin = glm_lower, ymax = glm_upper, fill = "Logistic Linear"), alpha = 0.4) +
+  scale_fill_manual(name = "Fitting method", values = c("Logistic spline" = "#0099B4FF", "Logistic Linear" = "red", "Logistic Categorised" = "grey")) +
+  scale_colour_manual(name = "Fitting method", values = c("Logistic spline" = "Dark blue", "Logistic Linear" = "Dark red", "Logistic Categorised" = "black")) +
+  coord_cartesian(xlim = c(0,36),ylim = c(0, 0.5)) +
+  labs(y = "Proportion deceased at 30 days", x = "Time to positivity (hours)") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_GT() 
+linear_plot
+
+```
+
+### Logistic regression using categorised TTP
+
+For the categorised model, using a global cutoff at TTP ≤ 10 hours, `r paste(sum(df$ttp <= 10 & df$deceased_30, na.rm = T), "/", sum(df$ttp <= 10 & !is.na(df$deceased_30), na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 10 & df$deceased_30,na.rm = T) / sum(df$ttp <= 10 & !is.na(df$deceased_30), na.rm = T)), ")", sep = "")` patients within the group with shorter TTP died in 30 days, as compared to `r paste(sum(df$ttp > 10 & df$deceased_30,na.rm = T), "/", sum(df$ttp > 10 & !is.na(df$deceased_30), na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp > 10 & df$deceased_30,na.rm = T) / sum(df$ttp > 10& !is.na(df$deceased_30), na.rm = T)), ")", sep = "")` in the group with longer TTP, resulting in an Odds ratio of `r HR_m6`, p value = 0.0001 for shorter vs longer TTP. This is the approach used by Laupland et al.[@laupland2024a] According to their abstract, the case-fatality rate in the group with a TTP shorter than 10 hours was 2606 / 17879 (14.6%), compared to an aggregate rate of (2834 + 2378 + 2752) / (24272 + 20359 + 22431) = 7964 / 67062 (11.9%) in the group with a longer TTP. This is equivalent to a crude odds ratio (95% CI) of 1.27 (1.21 - 1.33), which is very close to our estimate. It is also noteworthy that the quartiles and overall mortality rates were also similar, indicating that results are robust across these settings.
+
+```{r figure_11_cat_plot, fig.height = 2.8, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra="", fig.cap = "**Categorised logistic regression model** The model used a TTP cutoff at 10 hours. Line = regression fit, shaded area = 95% confidence interval."}
+# cat plot
+cat_plot <- ggplot(temp_df, aes(x = ttp)) +
+  geom_line(aes(y = glm_cat_fit, colour = "Logistic Categorised"), size = 0.4) +
+  geom_ribbon(aes(ymin = glm_cat_lower, ymax = glm_cat_upper, fill = "Logistic Categorised"), alpha = 0.5) +
+  scale_fill_manual(name = "Fitting method", values = c("Logistic spline" = "#0099B4FF", "Logistic Linear" = "red", "Logistic Categorised" = "grey")) +
+  scale_colour_manual(name = "Fitting method", values = c("Logistic spline" = "Dark blue", "Logistic Linear" = "Dark red", "Logistic Categorised" = "black")) +
+  coord_cartesian(xlim = c(0,36),ylim = c(0, 0.5)) +
+  labs(y = "Proportion deceased at 30 days", x = "Time to positivity (hours)") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_GT() 
+cat_plot
+
+```
+
+However, when the cutoff was changed to 9, 8, and 7 hours, the 30-day mortality rate changed to `r paste(sum(df$ttp <= 9 & df$deceased_30,na.rm = T), " / ", sum(df$ttp <= 9, na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 9 & df$deceased_30,na.rm = T) / sum(df$ttp <= 9, na.rm = T)), ")", sep = "")`, `r paste(sum(df$ttp <= 8 & df$deceased_30,na.rm = T), " / ", sum(df$ttp <= 8, na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 8 & df$deceased_30,na.rm = T) / sum(df$ttp <= 8, na.rm = T)), ")", sep = "")`, `r paste(sum(df$ttp <= 7 & df$deceased_30,na.rm = T), " / ", sum(df$ttp <= 7, na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 7 & df$deceased_30,na.rm = T) / sum(df$ttp <= 7, na.rm = T)), ")", sep = "")`, illustrating that the risk increase with shorter TTP is likely to be exponential.
+
+```{r figure_12_cat_plot3, fig.height = 2.8, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra="", fig.cap = "**Categorised logistic regression model** Using TTP cutoffs at 7, 8, 9, and 10 hours. Line = regression fit, shaded area = 95% confidence interval."}
+# cat plot3
+cat_plot3 <- ggplot(temp_df, aes(x = ttp)) +
+  geom_line(aes(y = glm_cat_fit, colour = "Logistic Categorised 10 hours"), size = 0.4) +
+  geom_line(aes(y = glm_cat_fit2, colour = "Logistic Categorised 9 hours"), size = 0.4) +
+  geom_line(aes(y = glm_cat_fit3, colour = "Logistic Categorised 8 hours"), size = 0.4) +
+  geom_line(aes(y = glm_cat_fit4, colour = "Logistic Categorised 7 hours"), size = 0.4) +
+  scale_colour_manual(name = "Fitting method", breaks = c("Logistic Categorised 7 hours",
+                                                        "Logistic Categorised 8 hours",
+                                                        "Logistic Categorised 9 hours",
+                                                        "Logistic Categorised 10 hours"),
+                        values = c(
+                                                        "Logistic Categorised 9 hours" = "red",
+                                                        "Logistic Categorised 8 hours" = "blue",
+                                                        "Logistic Categorised 7 hours" = "#0099B4FF",
+                                                        "Logistic Categorised 10 hours" = "black")) +
+  coord_cartesian(xlim = c(0,36),ylim = c(0, 0.5)) +
+  labs(y = "Proportion deceased at 30 days", x = "Time to positivity (hours)") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_GT() 
+cat_plot3
+
+```
+
+### Non-linear models
+
+The three non-linear models (the logistic regression using a five-knot restricted cubic spline, the generalised additive model (GAM), and the locally estimated regression smoother (LOESS) model) all confirmed an exponential association and the model fits were very similar.
+
+```{r figure_13_non_linear_plot, fig.height = 2.8, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra="", fig.cap = "**Non-linear models.** The assocation between time to positivity and 30-day mortality using non-linear models. Lines represent regression models, shaded areas 95% confidence intervals."}
+# non-linear plot
+non_linear_plot <- ggplot(temp_df, aes(x = ttp)) +
+  geom_line(aes(y = loess_fit, colour = "LOESS"), size = 0.4) +
+  geom_line(aes(y = glm_spline_fit, colour = "Logistic Spline"), size = 0.4) +
+  geom_line(aes(y = gam_fit, colour = "GAM"), size = 0.4) +
+  geom_ribbon(aes(ymin = loess_lower, ymax = loess_upper, fill = "LOESS"), alpha = 0.3) +
+  geom_ribbon(aes(ymin = glm_spline_lower, ymax = glm_spline_upper, fill = "Logistic Spline"), alpha = 0.3) +
+  geom_ribbon(aes(ymin = gam_fit_lower, ymax = gam_fit_upper, fill = "GAM"), alpha = 0.3) +
+  coord_cartesian(xlim = c(0,36),ylim = c(0, 0.5)) +
+  scale_fill_manual(name = "Fitting method", values = c("Logistic Spline" = "#0099B4FF", "LOESS" = "red", "GAM" = "grey")) +
+  scale_colour_manual(name = "Fitting method", values = c("Logistic Spline" = "Dark blue", "LOESS" = "Dark red", "GAM" = "black")) +
+  labs(y = "Proportion deceased at 30 days", x = "Time to positivity (hours)") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_GT()
+non_linear_plot
+```
+
+#### Comparing models
+
+When comparing these models for model fit using the Likelihood ratio test it was evident that the categorised model with a 10 hour cut-off had better fit than the linear model, Likelihood ratio test, chi-square: 13.7, p value = 0.0002. However, the non-linear model performed much better than both the categorised fit, `r paste("Likelihood ratio test, chi-square: ", format(round(anova(m5,m2, test = "LR")[,4][[2]], digits = 1), nsmall = 1), ", p value < 0.0001", sep = "")`, and the linear fit, `r paste("Likelihood ratio test, chi-square: ", format(round(anova(m4,m2, test = "LR")[,4][[2]], digits = 1), nsmall = 1), ", p value < 0.0001", sep = "")`.
+
+#### Conclusion
+
+We conclude that the association between TTP and mortality is non-linear and should be modelled as such. This has biological plausibility. By modelling the association in different ways, we could replicate the results of previous studies and thus explain their previously conflicting results.
+
+### Timing of 30-day mortality
+
+Using the categorised TTP, a traditional Cumulative hazard plot is seen in figure 14.
+
+```{r figure_14_dead_30_ttp_survival_curve, fig.height = 3, fig.width = 4.3, fig.align = "left", fig.pos = "H", out.extra="",  fig.cap = "Cumulative hazard plot of 30-day all-cause mortality by TTP strata"}
+survfit2(Surv(fup_time_deceased, deceased_30) ~ ttp_strata, 
+         data = df %>% filter(!is.na(deceased_30))) %>% 
+  ggsurvfit(type = "risk", linewidth = 0.4) +
+  add_confidence_interval(alpha = 0.35) +
+  scale_ggsurvfit() +
+  coord_cartesian(xlim = c(0,30), ylim = c(0, 0.25)) +
+  scale_color_lancet()+
+  scale_fill_lancet() +
+  labs(y = "Proportion deceased",
+       x = "Time from blood culture, days") +
+  theme_classic() +
+  theme_GT()
+
+```
+
+However, as discussed above, using a single arbitrary cutoff doesn´t necessarily make sense for an exponential association. To illustrate this we also present a perspective plot with cumulative mortality on the z axis, with TTP and follow-up time on the x and y axes, respectively.
+
+![Cumulative hazard plot of TTP vs mortality over time](Rplot04.png)
+
+### TTP vs ICU admission
+
+As for the ICU outcome, a TTP ≤ 10 hours was associated with higher 30-day ICU admission rate, with `r paste(sum(df$ttp <= 10 & df$icu_30 == 1,na.rm = T), "/", sum(df$ttp <= 10 & !is.na(df$icu), na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 10 & df$icu_30 == 1,na.rm = T) / sum(df$ttp <= 10 & !is.na(df$icu), na.rm = T)), ")", sep = "")`, as compared to `r paste(sum(df$ttp > 10 & df$icu_30 == 1,na.rm = T), "/", sum(df$ttp > 10 & !is.na(df$icu), na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp > 10 & df$icu_30 == 1,na.rm = T) / sum(df$ttp > 10 & !is.na(df$icu), na.rm = T)), ")", sep = "")` in those with TTP \> 10 hours. This was equivalent to an Odds ratio of `r HR_m7` for short vs long TTP. And again, when replicating the non-linear plot of TTP vs mortality, it was clear that the association with ICU admissions had a similar functional form.
+
+```{r figure_16_non_linear_icu_plot, fig.height = 2.8, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra="", fig.cap = "Non-linear modelling of the association between TTP and ICU admission and mortality at 30 days. Line = regression fit, shaded area = 95% confidence interval."}
+
+m11 <- glm(deceased_30 ~ rcs(ttp,5), family = "binomial", data = df)
+p11 <- predict(m11, type = "response", se.fit = TRUE)
+temp_df$glm_spline_fit11 <- p11$fit
+temp_df$glm_spline_lower11 <- p11$fit - 1.96* p11$se.fit
+temp_df$glm_spline_upper11 <- p11$fit + 1.96* p11$se.fit
+
+temp_df2 <- df %>% filter(!is.na(icu_30), !is.na(ttp))
+
+m12 <- glm(icu_30 ~ rcs(ttp,5), family = "binomial", data = df)
+p12 <- predict(m12, type = "response", se.fit = TRUE)
+temp_df2$glm_spline_fit12 <- p12$fit
+temp_df2$glm_spline_lower12 <- p12$fit - 1.96* p12$se.fit
+temp_df2$glm_spline_upper12 <- p12$fit + 1.96* p12$se.fit
+
+
+ggplot(temp_df) +
+  geom_line(aes(y = glm_spline_fit11, x = ttp, colour = "Mortality")) +
+  geom_ribbon(aes(ymax = glm_spline_upper11, ymin = glm_spline_lower11, x = ttp, fill = "Mortality"), alpha = 0.5) +
+  geom_line(data = temp_df2, aes(y = glm_spline_fit12, x = ttp, colour = "ICU admission")) +
+  geom_ribbon(data = temp_df2, aes(ymax = glm_spline_upper12, ymin = glm_spline_lower12, x = ttp, fill = "ICU admission"), alpha = 0.5) +
+  coord_cartesian(xlim = c(0,36),ylim = c(0, 0.5)) +
+  labs(y = "Proportion with outcome at 30 days", x = "Time to positivity (hours)") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_colour_manual(name = "Outcome", breaks = c("Mortality", "ICU admission"), values = c("ICU admission" = "dark blue", "Mortality" = "black")) +
+  scale_fill_manual(name = "Outcome", breaks = c("Mortality", "ICU admission"), values = c("ICU admission" = "red", "Mortality" = "#0099B4FF"))+
+  theme_GT()
+```
+
+\pagebreak
+
+### Timing of 30-day ICU admission
+
+When categorised TTP was used, the cumulative hazard plot showed that the majority of ICU admissions occurred during the first days.
+
+```{r figure_17_icu_30_ttp_survival_curve, fig.height = 3, fig.width = 4.3, fig.align = "left", fig.pos = "H", out.extra="",  fig.cap = "Cumulative hazard plot of 30-day ICU admission by TTP strata"}
+
+survfit2(Surv(fup_time_icu, icu_30) ~ ttp_strata, 
+         data = df %>% filter(fup_time_icu >= 0, !is.na(icu_30))) %>% 
+  ggsurvfit(type = "risk", linewidth = 0.4) +
+  add_confidence_interval(alpha = 0.35) +
+  scale_ggsurvfit() +
+  coord_cartesian(xlim = c(0,30), ylim = c(0, 0.25)) +
+  scale_color_lancet()+
+  scale_fill_lancet() +
+  labs(y = "Proportion admitted to ICU or deceased",
+       x = "Time from blood culture, days") +
+  theme_classic() +
+  theme_GT()
+
+```
+
+This was also seen in the three-dimensional cumulative hazard plot.
+
+![Cumulative hazard plot of TTP vs ICU admission over time](icu_plot.png)
+
+\pagebreak
+
+#### TTP vs ICU admission or mortality
+
+As for the combined outcome of ICU admission or mortality in 30 days, a TTP ≤ 10 hours was associated with higher risk, with `r paste(sum(df$ttp <= 10 & df$dead_or_icu_30 == 1,na.rm = T), " / ", sum(df$ttp <= 10, na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 10 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp <= 10, na.rm = T)), ")", sep = "")`, as compared to `r paste(sum(df$ttp > 10 & df$dead_or_icu_30 == 1,na.rm = T), " / ", sum(df$ttp > 10, na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp > 10 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp > 10, na.rm = T)), ")", sep = "")`. in those with TTP \> 10 hours. This was equivalent to a Odds ratio of `r HR_m8` for shorter vs longer TTP. We performed a sensitivity analysis where both outcomes had to be non-missing and the results did not change substantially, with a OR of `r HR_m9`. For this outcome, we also adjusted for all baseline characteristics (all variables in table 1 in the manuscript) and the association between TTP and outcome was similar, with a OR (95% CI) of `r HR_m10`.
+
+```{r figure_18_non_linear_icu_plot, fig.height = 2.8, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra="", fig.cap = "Non-linear modelling of the association between TTP and ICU admission, mortality, or a combination outcome at 30 days. Line = regression fit, shaded area = 95% confidence interval."}
+
+m11 <- glm(deceased_30 ~ rcs(ttp,5), family = "binomial", data = df)
+p11 <- predict(m11, type = "response", se.fit = TRUE)
+temp_df$glm_spline_fit11 <- p11$fit
+temp_df$glm_spline_lower11 <- p11$fit - 1.96* p11$se.fit
+temp_df$glm_spline_upper11 <- p11$fit + 1.96* p11$se.fit
+
+temp_df2 <- df %>% filter(!is.na(icu_30), !is.na(ttp))
+
+m12 <- glm(icu_30 ~ rcs(ttp,5), family = "binomial", data = df)
+p12 <- predict(m12, type = "response", se.fit = TRUE)
+temp_df2$glm_spline_fit12 <- p12$fit
+temp_df2$glm_spline_lower12 <- p12$fit - 1.96* p12$se.fit
+temp_df2$glm_spline_upper12 <- p12$fit + 1.96* p12$se.fit
+
+temp_df3 <- df %>% filter(!is.na(dead_or_icu_30), !is.na(ttp))
+
+m13 <- glm(dead_or_icu_30 ~ rcs(ttp,5), family = "binomial", data = df)
+p13 <- predict(m13, type = "response", se.fit = TRUE)
+temp_df3$glm_spline_fit13 <- p13$fit
+temp_df3$glm_spline_lower13 <- p13$fit - 1.96* p13$se.fit
+temp_df3$glm_spline_upper13 <- p13$fit + 1.96* p13$se.fit
+
+
+ggplot(temp_df) +
+  geom_line(aes(y = glm_spline_fit11, x = ttp, colour = "Mortality")) +
+  geom_ribbon(aes(ymax = glm_spline_upper11, ymin = glm_spline_lower11, x = ttp, fill = "Mortality"), alpha = 0.5) +
+  geom_line(data = temp_df2, aes(y = glm_spline_fit12, x = ttp, colour = "ICU admission")) +
+  geom_ribbon(data = temp_df2, aes(ymax = glm_spline_upper12, ymin = glm_spline_lower12, x = ttp, fill = "ICU admission"), alpha = 0.5) +
+  geom_line(data = temp_df3, aes(y = glm_spline_fit13, x = ttp, colour = "ICU or Deceased")) +
+  geom_ribbon(data = temp_df3, aes(ymax = glm_spline_upper13, ymin = glm_spline_lower13, x = ttp, fill = "ICU or Deceased"), alpha = 0.5) +
+  coord_cartesian(xlim = c(0,36),ylim = c(0, 0.5)) +
+  labs(y = "Proportion with outcome at 30 days", x = "Time to positivity (hours)") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_colour_manual(name = "Outcome", breaks = c("ICU or Deceased", "Mortality", "ICU admission"), values = c("ICU or Deceased" = "blue", "ICU admission" = "dark blue", "Mortality" = "black")) +
+  scale_fill_manual(name = "Outcome", breaks = c("ICU or Deceased", "Mortality", "ICU admission"), values = c("ICU or Deceased" = "blue", "ICU admission" = "red", "Mortality" = "#0099B4FF"))+
+  theme_GT()
+```
+
+#### Timing of ICU admission or mortality
+
+Again, the majority of events occurred in the first days, as seen in the stratified cumulative hazard plot below. This is also seen in the three-dimensional plot, figure 4, in the main manuscript.
+
+```{r icu_or_dead_ttp_survival_curve, , fig.height = 3, fig.width = 4.3, fig.align = "left", fig.pos = "H", out.extra="",  fig.cap = "Cumulative hazard plot of ICU admission or mortality within 30 days of culturing, by TTP strata."}
+
+survfit2(Surv(fup_time_both, dead_or_icu) ~ ttp_strata, 
+         data = df %>% filter(fup_time_both >= 0)) %>% 
+  ggsurvfit(type = "risk", linewidth = 0.4) +
+  add_confidence_interval(alpha = 0.35) +
+  scale_ggsurvfit() +
+  coord_cartesian(xlim = c(0,30), ylim = c(0, 0.25)) +
+  scale_color_lancet()+
+  scale_fill_lancet() +
+  labs(y = "Proportion admitted to ICU or deceased",
+       x = "Time from blood culture, days") +
+  theme_classic() +
+  theme_GT()
+
+```
+
+\pagebreak
+
+## TTP vs outcome, stratified by species
+
+We estimated the median and interquartile range of TTP for each pathogen category, see table 7. Then we compared categorical TTP (Q1 vs Q2-Q4) against ICU admission or mortality in 30 days after culturing, estimating the Odds ratios in each species strata, as seen in figure 5 in the main manuscript.
+
+```{r species_table}
+species_table <- df_w_contaminants %>% 
+  filter(finding != "Negative") %>% 
+  mutate(bacteria_topten = ifelse(contaminant, "Contaminant", bacteria_topten)) %>% 
+  group_by(bacteria_topten) %>% 
+  summarise(count = n(),
+            ttp1 = median(ttp, na.rm = T),
+            median_ttp = format(round(median(ttp, na.rm = T),1), nsmall = 1),
+            q1 = format(round(quantile(ttp, 0.25, na.rm = T),1), nsmall = 1),
+            q3 = format(round(quantile(ttp, 0.75, na.rm = T),1), nsmall = 1),
+            q5 = format(round(quantile(ttp, 0.05, na.rm = T), 1 ), nsmall = 1)) %>% 
+  mutate(median_iqr = paste(median_ttp, " (", q1, " - ", q3, ")", sep = ""))  %>% 
+  arrange(ttp1) %>% 
+  select(-c(ttp1, median_ttp, q1, q3, q5))
+
+
+kbl(species_table %>% 
+  mutate(bacteria_topten = c("Beta hemolytic streptococci", 
+                             "\\textit{Escherichia coli}", 
+                             "\\textit{Streptococcus pneumoniae}", 
+                             "\\textit{Klebsiella} species", 
+                             "Polymicrobial finding", 
+                             "Other Enterobacterales", 
+                             "\\textit{Enterococcus} species", 
+                             "\\textit{Staphylococcus aureus}", 
+                             "Alpha hemolytic streptococci", 
+                             "\\textit{Staphylococcus} species", 
+                             "Other non-anaerobic gram-negative", 
+                             "Contaminants", 
+                             "Other non-anaerobic gram-positive",
+                             "Anaerobic bacteria", 
+                             "Fungal infection")),
+  escape = FALSE,
+             format = "latex", 
+             linesep = "", 
+             booktabs = T,
+             col.names = c("Pathogen category", "count", "TTP, hours, median (IQR)"), 
+             align = "lrr") %>% 
+  kable_styling(
+        font_size = 9, 
+        position = "left",
+        latex_options = "HOLD_position") %>% 
+    kableExtra::footnote(general = "", general_title = "Table 7. Time to positivity for different pathogen categories.")
+```
+
+\pagebreak
+
+#### Sensitivity analysis 1: Testing the association in sites without cabinets
+
+To further explore the validity of findings from sites without cabinets on-site, we plotted the same non-linear plot for these samples only and it was obvious that the difference in transfer time had completely invalidated the results. Thus, prolonged transfer time has to be accounted for in future analyses.
+
+```{r TTP_Cutoff_no_cabinets, eval = T, fig.width = 4, fig.align = "left", fig.pos = "H", out.extra = "", fig.cap = "In hospitals withouh on-site cabinets, there was no association between time-to-positivity within 0 to 36 hours and 30-day mortality, using a non-linear LOESS (locally estimated scatterplot smoother), with 95% confidence interval. Dashed line = suggested TTP cutoff at 10 hours. Marginal histogram shows distribution of TTP."}
+
+p <- ggplot(episode_data %>% filter(!has_cabinet), 
+       aes(y = ifelse(deceased & !is.na(fup_time_deceased) & fup_time_deceased <= 30,1,0), x = ttp)) +
+  geom_point(shape = NA) + 
+  geom_smooth(method = "loess", color = "black", 
+              fill = "#0099B4FF", size = 0.4, alpha = 0.5) +
+  geom_vline(xintercept = 10, linetype = "dashed", col = "dark grey") +
+  scale_x_continuous(limits = c(0,36), breaks = seq(0,36, by = 8)) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_cartesian(ylim = c(0,0.5)) +
+  labs(y = "Proportion deceased at 30 days", x = "Time-to-positivity (hours) ", shape = NULL) +
+  theme_GT()
+  
+
+ggMarginal(p, 
+           type = "histogram",
+           colour = "black", 
+           fill = "#0099B4FF", 
+           alpha = 0.5, 
+           margins = "x", 
+           bins = 120, 
+           xparams = list(size=0.2))
+
+```
+
+\pagebreak
+#### Sensitivity analysis 2: Testing the association in pediatric bottles. 
+
+The association between TTP and 30-day mortality was similar in pediatric patients. 
+
+```{r sens_2, fig.width = 5, fig.align = "left", fig.pos = "H", out.extra = "", fig.cap = "Association between TTP and 30-day all-cause mortality in pediatric patients in hospitals with on-site cabinets. Line =  LOESS (locally estimated scatterplot smoother) fit, with 95% confidence interval (shaded area). Dashed line = suggested TTP cutoff at 10 hours. Marginal histogram shows distribution of TTP."}
+
+df_young <- df  %>% 
+  filter(!is.na(ttp), !is.na(deceased_30),age < 18) %>% 
+  mutate(under_18 = ifelse(age < 18, "0-17 years, N = 363", "18+ years, N = 10789")) 
+
+p2 <- ggplot(df_young,aes(y = deceased_30, x = ttp, group = under_18)) +
+  geom_point(shape = NA) +
+  geom_smooth(aes(fill = under_18, col = under_18), 
+              method = "loess", linewidth = 0.4) +
+    geom_vline(xintercept = 10, linetype = "dashed", col = "dark grey") +
+  scale_x_continuous(limits = c(0,36), breaks = seq(0,36, by = 8)) +
+  scale_y_continuous(labels = scales::percent, breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5)) +
+  coord_cartesian(ylim = c(-0.1, 0.55)) +
+  labs(y = "Proportion deceased at 30 days (%)", x = "Time to positivity (hours)",
+       col = "Age group", fill = "Age group") +
+  scale_color_lancet()+
+  scale_fill_lancet() +
+  theme_GT() 
+
+
+ggMarginal(p2, 
+           type = "histogram",
+           colour = "black", 
+           fill = "#0099B4FF", 
+           alpha = 0.5, 
+           margins = "x", 
+           bins = 120, 
+           xparams = list(size=0.2))
+
+```
+
+
+\pagebreak
+
+# 5. References

@@ -1,0 +1,634 @@
+---
+title: "Association of short time to blood culture positivity with disease severity - a population-based study"
+author: "Gustav Torisson"
+format: docx
+editor: visual
+documentclass: article
+mainfont: Times New Roman
+bibliography: references.bib
+csl: the-lancet-infectious-diseases.csl
+#always_allow_html: yes
+output:
+  pdf_document:
+    template: lancet-template.tex
+header-includes:
+   - \usepackage[singlelinecheck=false]{caption}
+   - \usepackage{caption}
+   - \captionsetup[figure]{font=small}
+---
+
+```{=html}
+<style>
+main {
+text-align: justify}
+header {
+text-align: left}
+</style>
+```
+## Introduction
+
+Bloodstream infections (BSIs) have a case fatality risk of 10-20% and cause an estimated 150 000 deaths annually in Europe.[@goto2013] The incidence of BSIs is increasing, especially in those aged 80 years and over.[@Ljungquist2023; @Gustav2022; @Kontula2021] Demographic projections suggest that this age group will increase substantially, emphasising the need to optimise management of suspected BSIs, including early identification of patients at risk of deterioration.[@UN]
+
+Blood culture in fluid culture medium in bottles is the standard method for detecting bacteria in blood.[@gonzalez2020a] Time to positivity (TTP) is defined as the time elapsed between blood culture bottles are incubated to the detection of pathogen growth. TTP is an indirect measure of the original inoculum in blood but varies between pathogens due to different growth rates.[@lamy2019] Other factors affecting TTP include the time from venepuncture to incubation, the blood volume added to the bottle, and the type of blood culture system used.[@almuhayawi2015; @rönnberg2013; @henning2019a] Numerous studies have evaluated the hypothesis that shorter TTP (i.e., higher bacterial load) is associated with poor patient outcomes. [@Bläckberg2022; @oldberg2021; @bläckberg2023; @laupland2024a; @Nygren2022; @cillóniz2017; @deguchi2024; @hsieh2022; @khatib2005] However, previous studies have shown conflicting results, as demonstrated by two large recent studies having reached opposite conclusions.[@laupland2024a; @hamilton2022] The discrepancy in results has been ascribed to various factors, including differences in time to incubation and sample size but to this date no conclusive explanation to conflicting results has been presented.[@laupland2024a; @hamilton2022; @lamy2019] The clinical utility of TTP is debated and, as of today, TTP is primarily recommended to distinguish catheter-related BSIs.[@lamy2019; @mermel2009]
+
+We hypothesised that the choice of statistical methodology has contributed to conflicting results in previous studies. Bacterial growth is an inherently exponential phenomenon, where bacteria may double every 20 minutes in optimal conditions.[@tuttle2021] In this hypothetical situation, one- and two-hour differences in TTP would represent an 8- and 64-fold difference in the original inoculum. Consequentially, if the bacterial load in blood is indeed related to disease severity, the association between TTP and outcome would be exponential. However, this has not been evaluated, previous studies have used linear or categorised models.[@bläckberg2023; @cillóniz2017; @cobos-trigueros2014; @deguchi2024; @hamilton2022; @hsieh2022; @kahn2021; @khatib2005; @Krus2022; @laupland2024a; @liao2009] In addition, previous studies are limited by the use of single outcomes, primarily 30-day mortality, which could be susceptible to confounding (e.g., due to high age, concurrent antibiotics, immunosuppression) and to factors occurring between the time of culture and outcome.
+
+We aimed to provide a non-linear model to estimate the association between TTP and disease severity, using multiple disease severity markers at the time of culturing as well as outcomes, including adjustment for previously unmeasured confounders. The overall purpose is to determine whether TTP is a valid prognostic marker in BSIs.
+
+```{r Setup, echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE, eval = T}
+# chunk options for code chunks in this document
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE,
+  warning = FALSE, 
+  include = TRUE, 
+  cache = TRUE)
+
+# Loading required packages
+pacman::p_load(GA, rms, scales, ggh4x, tidyverse, vroom, ggExtra, arrow, here, skimr, ggsci, readxl, survminer, survival, DescTools, data.table, janitor, kableExtra, ggsurvfit, ggthemes, gtsummary, flextable, patchwork)
+options(digits = 2, scipen = 3)
+
+# reading in processed data
+micro_data <- read_parquet(here("data", "processed_data", "micro_data.parquet"))
+episode_data <- read_parquet(here("data", "processed_data", "episode_data.parquet"))
+df <- episode_data %>% filter(has_cabinet)
+
+df_w_contaminants <- df # save separate df keeping contaminants for stratified analysis
+# then removing contaminants from main file - setting ttp to NA if contaminant
+df <- df %>% 
+  mutate(finding = ifelse(!is.na(contaminant) & contaminant, "Negative", finding),
+         ttp = ifelse(!is.na(contaminant) & contaminant, NA, ttp),
+         ttp_strata = ifelse(!is.na(contaminant) & contaminant, "Negative", ttp_strata))
+
+# sourcing all functions
+source(here("code", "R", "functions.R"))
+```
+
+### Methods
+
+#### Study design
+
+In this population-based retrospective cohort study, all blood cultures obtained in the Skåne region in southern Sweden from 2021 to 2023 were analysed. The region has 1.4 million inhabitants, and is served by ten acute care hospitals. Case-finding was achieved by querying the database at the Department of Clinical Microbiology in Lund, the exclusive provider of microbiology diagnostics in the region, for all blood culture bottles obtained from January 1st 2021 through December 31st 2023. Microbiology data was matched with data from regional healthcare databases, including diagnoses, medications, hospitalisation dates, laboratory values, vital signs, admissions to intensive care and vital status. Data matching was obtained using Swedish unique personal identification numbers. A 30-day deduplication period separated suspected BSI episodes. The study was approved by the Swedish Ethical Review Authority.
+
+#### Microbiology data
+
+In the Skåne region, BD Bactec Plus aerobic medium and BD Bactec Lytic anaerobic medium blood culture bottles are incubated in blood culturing cabinets (BACTEC FX, BectonDickinson, Franklin Lakes, United States), for a standard incubation time of five days. The five largest hospitals in the region have on-site cabinets, while samples taken in the other five hospitals are transported to the nearest hospital with a cabinet. Upon detection of a pathogen, bottles are transported to the laboratory at the Clinical Microbiology department in Lund, for species identification and susceptibility testing.
+
+Microbiology data included TTP for each bottle. A blood culture set was defined as one aerobic plus one anerobic bottle. The date of the first blood culture was labelled the index date and baseline was defined as the time of culturing. If at least one bottle was positive on the index date, the result was defined as positive. Common skin commensals were considered contaminations if positive in only one blood culture set. In the case of a concurrent relevant finding and a contamination, the relevant finding was prioritised. The result was labelled polymicrobial if several different relevant findings were identified, and a contamination if several contaminants were identified. In the case of identical or polymicrobial findings, the bottle with shortest TTP was prioritised in the deduplication process. Pathogens were further classified into major categories, see appendix for full details on pathogen classification.
+
+#### Clinical data
+
+Primary and hospital care diagnoses from the current hospitalisation and the year preceding the index date were retrieved, using the International Statistical Cassification of Diseases and Health Related Problems, 10th edition, Swedish version (ICD-10-SE). The Charlson comorbidity index was determined according to an established methodology for healthcare registries in Sweden. [@ludvigsson2021] As the Charlson index lacks several conditions relevant for BSIs (e.g., immunodeficiencies, chronic skin diseases, psychiatric diseases), further separate comorbidities were added, see appendix for full details on ICD-10-SE codes. Medications data covered the two months preceding the index date and included Anatomical Therapeutical Classification (ATC) codes. Concurrent antibiotics was defined as the prescription or administration of an antimicrobial for systemic use (ATC group J01) during the 1-14 days preceding the index date. Immunosuppression was defined as the prescription or administration of an antineoplastic agent (ATC group L01) or an immunosuppressant (ATC group L04) within two months preceding culture. A nosocomial culture was defined as a culture taken after ≥ 48 hours of hospitalisation. We also recordedm recent hospitalisations, whether the patient had been hospitalised in the preceding three months.
+
+#### Disease severity markers and outcomes
+
+Thirteen disease severity markes were defined à priori, based on clinical relevance. Laboratory values included C-reactive protein, procalcitonin, lactate, creatinine, platelets, and bilirubin, where the last three are also included in the Sequential Organ Failure Assessment (SOFA) score.[@vincent1996] Data on vital signs included heart rate, systolic blood pressure, respiratory rate, mental alteration, oxygen saturation, and temperature, and were collected according to the National early warning scale 2 (NEWS2), as per local protocol.[@RCP2017] Disease severity markers within ± 24 hours from the time of culture were considered baseline values and, if several, the one closest in time to culture was prioritised. In addition, the results for all disease severity markers within 72 hours after baseline were included, to study trajectories in the first days. We also retrieved data on mortality and admission to intensive care to define the outcomes 30-day ICU admission or mortality and 30-day mortality.
+
+#### Analysis
+
+Cultures from hospitals without on-site cabinets were excluded from the final analysis, due to the risk of bias associated with prolonged transportation time. In the case of missing data, complete case analysis was performed. The only exception was that even though dates were always available, the exact culturing time was not always provided. This was estimated using: 1) the time of other laboratory values from blood obtained on the index date, assuming that cultures had been acquired at the same venepuncture, 2) the time of hospitalisation start if on the index date, assuming that cultures had been obtained at the time of admission. Contaminations were considered negative except for in stratified analysis where these comprised a separate category.
+
+Generally, we aimed to model TTP continuously but used categorisation for easier interpretation in some instances, including in the description of baseline characteristics. For categorisation, we used the global TTP cutoff of 10 hours as in the study by Laupland et al.[@laupland2024a] Otherwise, the association of TTP vs baseline disease severity markers was estimated using a general additive model (GAM), plotted with 95% confidence intervals. This model needs to be interpreted graphically; a categorised analysis was also performed, with Mann-Whitney tests or Chi-square tests. To study the dynamics of disease severity markers during the first 72 hours, GAM models were plotted over time for categorised TTP strata. The association between TTP and 30-day mortality was estimated using a logistic regression with a five-knot restricted cubic spline. This non-linear model was compared to the modelling approaches used by previous studies (linear and categorised), using the Likelihood ratio chi-square test. To obtain Odds ratios and estimate the influence of confounders, categorised TTP vs 30-day ICU admission or death was also evaluated using logistic regression. To display the continuous TTP vs outcome over 30 days, we used a three-dimensional cumulative event plot. To evaluate bias due to species having different TTP, a stratified analysis, where the first quartile of TTP was compared to Q2-Q4 within each pathogen category, was performed. The detailed R code underlying all steps from raw data, including data management, analysis and the rendering of this manuscript and the supplementary appendix, is found at <https://github.com/gtorisson>.
+
+#### Role of the funding source
+
+The funder of the study had no role in study design, data collection, data analysis, data interpretation, or writing of the report.
+
+### Results
+
+```{r RESULTS_1}
+
+# this is the average population of 2021, 2022 and 2023
+pop_skane_2022 <- (1402425 + 1414324 + 1421781) / 3 
+bottles <- micro_data %>% # this is the number of bottles
+  mutate(bottle_id = paste(labnr, bottle)) %>% 
+  distinct(bottle_id) %>% 
+  nrow()
+```
+
+From 2021 throughout 2023, a total of `r bottles` blood culture bottles, representing `r n_distinct(micro_data$labnr)` blood cultures sets, were collected in the Skåne region. After 30-day deduplication, `r n_distinct(episode_data)` unique suspected BSI episodes remained. Of these, `r paste(df %>% filter(has_cabinet) %>% n_distinct(), " (", label_percent()((df %>% filter(has_cabinet) %>% n_distinct()) / n_distinct(episode_data)), ")", sep ="")` had been obtained in hospitals with on-site cabinets, constituting the final study sample, in `r n_distinct(df$patient_id)` individual patients. There was at least one bottle with a positive finding in `r paste(sum(df_w_contaminants$finding != "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df_w_contaminants$finding != "Negative") / n_distinct(df)), ")", sep = "")` episodes, of which `r sum(df$contaminant, na.rm = T)` were considered contaminations and `r sum(df$finding != "Negative")` confirmed BSI episodes. Time to positivity was available in `r paste(sum(df$finding != "Negative" & !is.na(df$ttp)), " (", label_percent(accuracy = 0.1L)(sum(df$finding != "Negative" & !is.na(df$ttp)) / sum(df$finding != "Negative")), ")", sep = "")` of the BSI episodes, with a median (IQR) of `r paste(round(median(df$ttp, na.rm = T),1), " (", round(quantile(df$ttp, 0.25, na.rm = T),1), " - ", round(quantile(df$ttp, 0.75, na.rm = T), 1), ")", sep = "")` hours. In our dataset, `r paste(sum(df$ttp <= 10, na.rm = T), " (", label_percent()(sum(df$ttp <= 10, na.rm = T) / sum(df$finding != "Negative")), ")", sep = "")` of BSI episodes had a TTP ≤ 10 hours. In samples from hospitals without on-site cabinets, TTP was highly inconsistent, justifying the exclusion of these samples from the analysis, see appendix for details.
+
+The median age was `r median(df$age)` years and `r paste(sum(df$sex == "Male"), " (", label_percent()(sum(df$sex == "Male") / nrow(df)), ")", sep = "")` of patients were males. In total, 74652 (83%) had at least one chronic comorbidity, with 46810 (52%) having three or more. When comparing the groups with shorter vs longer TTP, most comorbidities were more frequent in the group with shorter TTP, although differences were small. In patients with shorter TTP, 10% had received antibiotics in the preceding 14 days, compared to 13% in those with longer TTP, see table 1.
+
+```{r table_1,eval = T}
+
+table1 <- df %>% 
+  ungroup() %>% 
+  filter(!is.na(ttp_strata)) %>% ## ttp_strata has "negative" category, so NA is true missing 
+  mutate(sex = sex == "Male", 
+         cci_strata = case_when(cci_points < 1 ~ "0 points",
+                                cci_points < 3 ~ "1-2 points",
+                                cci_points < 5 ~ "3-4 points",
+                                cci_points > 4 ~ "5+ points",
+                                TRUE ~ NA)) %>% 
+  select(age,sex, cardiac_disease, pulmonary_disease, hypertension, anemia, 
+         genitourinary_disease, dialysis, malignancy,musculoskeletal_disease,
+         neurologic_disease, psychiatric_disorder, immunodeficiency, peripheral_vascular_disease, diabetes, skin_disease, hepatic_disease,cci_strata, ab_before, immunosupp_before, nosocomial,hosp_before, ttp_strata) %>% 
+  tbl_summary(
+    by = ttp_strata,
+    digits = all_continuous() ~ 1,
+    label = list(
+      age ~ "Age, years",
+      sex ~ "Male sex",
+      cardiac_disease = "Cardiac disease",
+      pulmonary_disease = "Pulmonary disease", 
+      hypertension = "Hypertension", 
+      anemia = "Anemia",
+      genitourinary_disease = "Genitourinary disease",
+      dialysis = "Dialysis",
+      malignancy = "Malignancy",
+      musculoskeletal_disease = "Musculoskeletal disease",
+      neurologic_disease = "Neurologic disease",
+      psychiatric_disorder = "Psychiatric disease",
+      immunodeficiency = "Immunodeficiency",
+      peripheral_vascular_disease = "Peripheral vascular disease",
+      diabetes = "Diabetes mellitus",
+      skin_disease = "Skin disease",
+      hepatic_disease = "Hepatic disease",
+      cci_strata = "Charlson comorbidity",
+      ab_before = "Antibiotics before",
+      immunosupp_before = "Immunosuppression",
+      nosocomial = "Nosocomial infection",
+      hosp_before = "Recent hospitalisation"
+      
+    )
+  ) %>%
+  modify_caption("**Table 1 - Baseline characteristics**")  
+
+# saving as docx for submission- this will then be slightly formatted in word
+save_as_docx(as_flex_table(table1), path= here("drafts", "table1.docx"))
+
+```
+
+The time of sampling had been provided in 92% of culturing episodes, and was extrapolated from another venepuncture on the index date in 6% and from hospitalisation start in 1%. When TTP was plotted against the thirteen disease severity markers at baseline, there was a clear association between shorter TTP and disease severity for all markers except oxygen saturation, see figure 1. The association was exponential for all markers except mental alteration and oxygen saturation. When the differences were tested across our TTP strata (≤ 10 hours vs \> 10 hours), all disease severity markers except C-reactive protein indicated higher severity in the group with shorter TTP (p \< 0.001 for all except oxygen saturation), see appendix. In the first three days, the course of disease was different across TTP strata, with progressing severity in patients with shorter TTP. Among laboratory values, C-reactive protein, creatinine, platelets, procalcitonin and lactate all all progressed towards higher severity in patients with shorter TTP. Among vital signs, the trajectory of systolic blood pressure was more severe in the group with shorter TTP, see figure 2.
+
+```{r disease_severity_ttp_baseline, eval = T, fig.height = 8, fig.width = 6, fig.cap = "Time to positivity  vs  disease severity markers at baseline in patients with positive blood cultures. The association is fitted using a generalised additive model (line), with shaded area representing 95% confidence interval. CRP = C-reactive protein, NEWS = National Early Warning Score, bpm = breaths per minute, SBP = Systolic blood pressure, SpO2 = peripheral oxygen saturation." }
+
+# figure of TTP vs baseline values of disease severity markers
+fig1 <- df %>% 
+  ungroup() %>% 
+  filter(!is.na(ttp)) %>% 
+  select(ttp,crp:news_total_score) %>% # for pivoting, as facet_wrap needs long file
+  pivot_longer(2:ncol(.)) %>% 
+  filter(!is.na(value)) %>% 
+  group_by(name) %>% 
+  mutate( # just formatting for prettier plots
+    name = case_when(
+    name == "crp" ~ paste("CRP, mg/L, N = ", sum(name == "crp",na.rm = T), sep = ""),
+    name == "bilirubin" ~ paste("Bilirubin, µmol/L, N = ", sum(name == "bilirubin",na.rm = T), sep = ""),
+    name == "lactate" ~ paste("Lactate, mmol/L, N = ", sum(name == "lactate",na.rm = T), sep = ""),
+    name == "platelets" ~ paste("Platelets, 10^9/L, N = ", sum(name == "platelets",na.rm = T), sep = ""),
+    name == "procalcitonin" ~ paste("Procalcitonin, µg/L, N = ", sum(name == "procalcitonin",na.rm = T), sep = ""),
+    name == "creatinine" ~ paste("Creatinine, µmol/L, N = ", sum(name == "creatinine",na.rm = T), sep = ""),
+    name == "heart_rate" ~ paste("Pulse, beats / min, N = ", sum(name == "heart_rate",na.rm = T), sep = ""),
+    name == "mental_alteration" ~ paste("Mental alteration, N = ", sum(name == "mental_alteration",na.rm = T), sep = ""),
+    name == "news_total_score" ~ paste("NEWS, points, N = ", sum(name == "news_total_score",na.rm = T), sep = ""),
+    name == "oxygen_saturation" ~ paste("SpO2 (%), N = ", sum(name == "oxygen_saturation",na.rm = T), sep = ""),
+    name == "respiratory_rate" ~ paste("Resp rate, bpm N = ", sum(name == "respiratory_rate",na.rm = T), sep = ""),
+    name == "systolic_blood_pressure" ~ paste("SBP, mmHg, N = ", sum(name == "systolic_blood_pressure",na.rm = T), sep = ""),
+    name == "temperature" ~ paste("Temperature, °C, N = ", sum(name == "temperature",na.rm = T), sep = "")
+    )) %>% 
+  ggplot(aes(y = value, x = ttp)) +
+  geom_smooth(fullrange = T, col = "black", fill = "#0099B4FF", linewidth = 0.3, alpha = 0.5, method = "gam") + # this adds the gam smoother, with default settings, see ? stat_smooth and mgcv::gam
+  facet_wrap(~ name, scales = "free_y", ncol = 3) +  
+  scale_x_continuous(breaks = seq(0,36, by = 12)) +
+  coord_cartesian(xlim = c(0,36)) +
+  labs(x = "Time to positivity (hours)", y = "") +
+  theme_GT() +
+  facetted_pos_scales( # this is to specify y axes across facets
+    y = list(
+      str_detect(name, "Bilirubin") ~ scale_y_continuous(limits = c(15,40)),
+      str_detect(name, "Lactate") ~ scale_y_continuous(limits = c(1.5,6)),
+      str_detect(name, "CRP") ~ scale_y_continuous(limits = c(120, 170)),
+      str_detect(name, "Platelets") ~ scale_y_continuous(limits = c(100, 300)),
+      str_detect(name, "Procalcitonin") ~ scale_y_continuous(limits = c(0, 100)),
+      str_detect(name, "Creatinine") ~ scale_y_continuous(limits = c(110, 170)),
+      str_detect(name, "Resp rate") ~ scale_y_continuous(limits = c(19,22), breaks = c(19,20,21,22), labels = scales::number_format(accuracy = 1)),
+      str_detect(name, "SBP") ~ scale_y_continuous(limits = c(110, 130)),
+      str_detect(name, "Pulse") ~ scale_y_continuous(limits = c(85, 100)),
+      str_detect(name, "SpO2") ~ scale_y_continuous(limits = c(94,97), breaks = c(94, 95, 96, 97)),
+      str_detect(name, "Temperature") ~ scale_y_continuous(limits = c(37, 38), breaks = c(37.0, 37.2, 37.4, 37.6, 37.8, 38.0),
+                                                           labels = scales::number_format(accuracy = 0.1)),
+      str_detect(name, "NEWS") ~ scale_y_continuous(limits = c(2.5, 5.5)),
+      str_detect(name, "Mental alteration") ~ scale_y_continuous(limits = c(0.04, 0.1), labels = scales::percent)))
+  
+# save as pdf
+ggsave(filename = here("drafts", "figure1.pdf"), fig1, height = 8)
+```
+
+```{r dynamic_disease_severity, eval = T, fig.height = 8, fig.width = 6, fig.cap = "Figure 2. Dynamics of disease severity markers in the first 72 hours, by TTP strata. The line represent generalised additive model fit, and shading 95% confidence intervals. CRP = C-reactive protein, NEWS = National Early Warning Score, bpm = breaths per minute, SBP = Systolic blood pressure, SpO2 = peripheral oxygen saturation."}
+
+
+
+reduced_lab = read_parquet(here("data", "processed_data", "lab_data.parquet"))  %>% # we need to go here to obtain times
+  rename(time = lab_time,
+         name = lab_name, 
+         value = lab_value) %>% 
+  filter(hours_from_culture %in% c(-24:120),
+         has_cabinet) 
+
+
+reduced_news = read_parquet(here("data", "processed_data", "news_data.parquet"))  %>% # we need to go here to obtain times
+  rename(time = NEWS_time,
+         name = NEWS_name, 
+         value = NEWS_value) %>% 
+  filter(hours_from_culture %in% c(-24:120),
+         has_cabinet)
+
+
+fig2 <- bind_rows(reduced_lab, reduced_news) %>% 
+filter(!is.na(ttp_strata)) %>%   
+  group_by(name) %>% 
+  mutate(name = case_when(
+    name == "CRP" ~ "CRP, mg/L",
+    name == "Bilirubin" ~ "Bilirubin, µmol/L",
+    name == "Lactate" ~ "Lactate, mmol/L",
+    name == "Platelets" ~ "Platelets, 10^9/L",
+    name == "Procalcitonin" ~ "Procalcitonin, µg/L",
+    name == "Creatinine" ~ "Creatinine, µmol/L",
+    name == "Heart rate" ~ "Pulse, beats / min",
+    name == "Mental alteration" ~ "Mental alteration",
+    name == "NEWS total score" ~ "NEWS, points",
+    name == "Oxygen saturation" ~ "SpO2 (%)",
+    name == "Respiratory rate" ~ "Resp rate, bpm",
+    name == "Systolic blood pressure" ~ "SBP, mmHg",
+    name == "Temperature" ~ "Temperature, °C")) %>% 
+  ggplot(aes(x = hours_from_culture, y = value)) +
+  stat_smooth(aes(colour = ttp_strata, fill = ttp_strata), method = "gam", linewidth = 0.5, alpha = 0.3, n = 50) + 
+  facet_wrap(~name,scales = "free_y", ncol = 3) +
+  coord_cartesian(xlim = c(0,72)) + 
+  scale_x_continuous(breaks = seq(0,72, by = 24)) + 
+  scale_color_lancet() +
+  scale_fill_lancet() +
+  labs(x = "time from culture (hours)", color = "TTP strata", fill = "TTP strata", shape = "ttp_strata",
+       y = "") + 
+  theme_GT() +
+  theme(legend.position = "top") +
+  facetted_pos_scales(
+    y = list(
+      str_detect(name, "Bilirubin") ~ scale_y_continuous(limits = c(20,55)),
+      str_detect(name, "CRP") ~ scale_y_continuous(limits = c(75, 225)),
+      str_detect(name, "Platelets") ~ scale_y_continuous(limits = c(100, 280)),
+      str_detect(name, "Procalcitonin") ~ scale_y_continuous(limits = c(0, 80)),
+      str_detect(name, "Creatinine") ~ scale_y_continuous(limits = c(100, 180)),
+      str_detect(name, "Lactate") ~ scale_y_continuous(limits = c(1.5, 4)),
+      str_detect(name, "Resp rate") ~ scale_y_continuous(limits = c(18,22), breaks = c(18, 19,20,21,22), labels = scales::number_format(accuracy = 1)),
+      str_detect(name, "SBP") ~ scale_y_continuous(limits = c(110, 130)),
+      str_detect(name, "Pulse") ~ scale_y_continuous(limits = c(80, 100)),
+      str_detect(name, "SpO2") ~ scale_y_continuous(limits = c(95,96), breaks = c(95, 95.2, 95.4, 95.6, 95.8, 96), labels = 
+                                                      scales::number_format(accuracy = 0.1)),
+      str_detect(name, "Temperature") ~ scale_y_continuous(limits = c(36.8, 37.8), breaks = c(36.8, 37.0, 37.2, 37.4, 37.6, 37.8),
+                                                           labels = scales::number_format(accuracy = 0.1)),
+      str_detect(name, "NEWS") ~ scale_y_continuous(limits = c(2, 5)),
+      str_detect(name, "Mental alteration") ~ scale_y_continuous(limits = c(0, 0.1), labels = scales::percent)
+      )
+    )
+
+
+ggsave(filename = here("drafts", "figure2.pdf"), height = 8, fig2)
+```
+
+```{r ttp_outcome, eval = T}
+
+# this builds models 
+
+# ttp vs 30day mortality
+m6 <- glm(deceased_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0), family = "binomial", data = df %>% filter(ttp_strata != "Negative"))
+HR_m6 <- paste(format(round(exp(coef(m6))[[2]],2), nsmall = 2), " (", 
+               format(round(exp(confint(m6))[[2]],2), nsmall = 2),"-", 
+               format(round(exp(confint(m6))[[4]],2), nsmall = 2), ")", sep = "")
+
+# ttp vs 30-day dead or ICU
+m9 <- glm(dead_or_icu_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0), family = "binomial", data = df %>% filter(ttp_strata != "Negative"))
+HR_m9 <- paste(format(round(exp(coef(m9))[[2]],2), nsmall = 2), " (", 
+               format(round(exp(confint(m9))[[2]],2), nsmall = 2),"-", 
+               format(round(exp(confint(m9))[[4]],2), nsmall = 2), ")", sep = "")
+
+
+# model adjusted for all baseline characteristics
+m10 <- glm(dead_or_icu_30 ~ ifelse(ttp_strata == "<= 10 hours", 1,0) + 
+    age +sex + cardiac_disease + pulmonary_disease + hypertension + anemia + 
+    genitourinary_disease + dialysis + malignancy + musculoskeletal_disease +
+    neurologic_disease + psychiatric_disorder + immunodeficiency + 
+    peripheral_vascular_disease + diabetes + skin_disease + hepatic_disease + 
+    cci_points + ab_before + immunosupp_before + nosocomial +hosp_before, 
+  data = df %>% filter(ttp_strata != "Negative"), family = binomial)
+
+HR_m10 <- paste(format(round(broom::tidy(m10, exponentiate = T, conf.int = T)[[2,2]],2),nsmall = 2), " (",
+format(round(broom::tidy(m10, exponentiate = T, conf.int = T)[[2,6]],2), nsmall = 2), " - ", 
+format(round(broom::tidy(m10, exponentiate = T, conf.int = T)[[2,7]],2), nsmall = 2), ")", sep = "")
+
+
+
+```
+
+Data on 30-day mortality was available in `r paste(sum(!is.na(df$deceased_30)), " (", label_percent(accuracy = 0.1L)(sum(!is.na(df$deceased_30)) / nrow(df)), ")", sep = "")` suspected BSI episodes, with a mortality of `r paste(sum(df$deceased_30 & df$finding == "Negative", na.rm = T) ," / ", sum(!is.na(df$deceased_30) & df$finding == "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df$deceased_30 & df$finding == "Negative", na.rm = T) / sum(!is.na(df$deceased_30) & df$finding == "Negative")), ")", sep = "")` in episodes with a negative finding (or contaminant) and `r paste(sum(df$deceased_30 & df$finding != "Negative", na.rm = T) ," / ", sum(!is.na(df$deceased_30) & df$finding != "Negative"), " (", label_percent(accuracy = 0.1L)(sum(df$deceased_30 & df$finding != "Negative", na.rm = T) / sum(!is.na(df$deceased_30) & df$finding != "Negative")), ")", sep = "")` in BSI episodes. Patients with a TTP ≤ 10 hours had a higher 30-day mortality, with `r paste(sum(df$ttp <= 10 & df$deceased_30, na.rm = T), " / ", sum(df$ttp <= 10 & !is.na(df$deceased_30), na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 10 & df$deceased_30, na.rm = T) / sum(df$ttp <= 10 & !is.na(df$deceased_30), na.rm = T)), ")", sep = "")`, as compared to `r paste(sum(df$ttp > 10 & df$deceased_30, na.rm = T), " / ", sum(df$ttp > 10 & !is.na(df$deceased_30), na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp > 10 & df$deceased_30, na.rm = T) / sum(df$ttp > 10 & !is.na(df$deceased_30), na.rm = T)), ")", sep = "")` in those with longer TTP, equivalent to an Odds ratio (95% CI) of `r HR_m6`. However, when the cutoff was changed to ≤ 9, 8, and 7 hours, the 30-day mortality rate changed to `r label_percent(accuracy = 0.1L)(sum(df$ttp <= 9 & df$deceased_30,na.rm = T) / sum(df$ttp <= 9 & !is.na(df$deceased_30), na.rm = T))`, `r label_percent(accuracy = 0.1L)(sum(df$ttp <= 8 & df$deceased_30,na.rm = T) / sum(df$ttp <= 8 & !is.na(df$deceased_30), na.rm = T))`, `r  label_percent(accuracy = 0.1L)(sum(df$ttp <= 7 & df$deceased_30,na.rm = T) / sum(df$ttp <= 7 & !is.na(df$deceased_30), na.rm = T))`, suggesting an exponential increase in risk with shorter TTP. This was also confirmed by the non-linear plot of continuous TTP vs 30-day all-cause mortality, seen in figure 3. Upon comparison, the non-linear model had a much better fit than the linear or categorised models used in previous studies (LR-test with p \< 0.0001 for both comparisons, see appendix for details).
+
+```{r TTP_Cutoff_figure2, eval = T, fig.width = 5, fig.align = "left", fig.cap = "Figure 3. Association between time-to-positivity (TTP) and 30-day all-cause mortality, using a non-linear logistic regression model, with 95% confidence interval. Dashed line = suggested TTP cutoff at 10 hours. Marginal histogram (top) shows the distribution of TTP."}
+
+# make a temp_df to save predicted values in, with 95% CI
+temp_df <- df %>% filter(!is.na(ttp) & !is.na(deceased_30))
+
+# rcs is restricted cubic spline, with five knots
+m2 <- glm(deceased_30 ~ rcs(ttp,5), family = "binomial", data = df)
+p2 <- predict(m2, type = "response", se.fit = TRUE)
+temp_df$glm_spline_fit <- p2$fit
+temp_df$glm_spline_lower <- p2$fit - 1.96* p2$se.fit
+temp_df$glm_spline_upper <- p2$fit + 1.96* p2$se.fit
+
+
+p <- ggplot(temp_df, aes(y = glm_spline_fit, x = ttp)) +
+  geom_line(col ="black", size = 0.4) +
+  geom_point(shape = NA)+ # not showing underlying points, but needed for ggMarginal
+  geom_ribbon(aes(ymin = glm_spline_lower, ymax = glm_spline_upper), 
+                  fill = "#0099B4FF", alpha = 0.5) +
+  geom_vline(xintercept = 10, linetype = "dashed", col = "dark grey", size = 0.4) +
+  scale_x_continuous(limits = c(0,36), breaks = seq(0,36, by = 8)) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_cartesian(ylim = c(0,0.5)) +
+  labs(y = "Proportion deceased at 30 days", x = "Time to positivity (hours) ", shape = NULL) +
+  theme_GT()
+  
+
+fig3 <- ggMarginal(p,
+           type = "histogram",
+           colour = "black", 
+           fill = "#0099B4FF", 
+           alpha = 0.5, 
+           margins = "x", 
+           bins = 120, 
+           xparams = list(size=0.2))
+
+
+ggsave(filename = here("drafts", "figure3.pdf"), width = 4, height = 3.5, fig3, device = "pdf" )
+
+
+```
+
+A TTP ≤ 10 hours was also associated with higher risk for ICU admission or death within 30 days, with `r paste(sum(df$ttp <= 10 & df$dead_or_icu_30 == 1,na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp <= 10 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp <= 10 & !is.na(df$dead_or_icu_30), na.rm = T)), ")", sep = "")`, as compared to `r paste(sum(df$ttp > 10 & df$dead_or_icu_30 == 1,na.rm = T), " (", label_percent(accuracy = 0.1L)(sum(df$ttp > 10 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp > 10 & !is.na(df$dead_or_icu_30), na.rm = T)), ")", sep = "")` in those with longer TTP, equivalent to an Odds ratio (95% CI) of `r HR_m9`. For this outcome, we also adjusted for baseline characteristics (all variables in table 1), resulting in a OR (95% CI) of `r HR_m10`. However, when the cutoff was changed to ≤ 9, 8, and 7 hours, the combined outcome occurred in `r label_percent(accuracy = 0.1L)(sum(df$ttp <= 9 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp <= 9, na.rm = T))`, `r label_percent(accuracy = 0.1L)(sum(df$ttp <= 8 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp <= 8, na.rm = T))`, `r label_percent(accuracy = 0.1L)(sum(df$ttp <= 7 & df$dead_or_icu_30 == 1,na.rm = T) / sum(df$ttp <= 7, na.rm = T))`, again signalling an exponential association. The cumulative risk plot in figure 4 showed this non-linear association and that most events in the group with shorter TTP occurred in the first days after culturing.
+
+```{r icu_or_dead_ttp, eval = T, fig.width = 7, fig.cap = "Figure 4. Three-dimensional perspective plot of the cumulative risk for ICU admission or death by TTP and time."}
+
+library(GA)
+## perspective plot
+test <- df %>% filter(ttp < 36, !is.na(dead_or_icu_30)) %>% 
+  mutate(fup_time = fup_time_both,
+         ttp = ttp %/% 2) %>%  
+  group_by(ttp) %>% 
+  summarise(count = n(),
+            outcome = sum(dead_or_icu_30 == 1, na.rm = T),
+            fup0 = sum(dead_or_icu_30 == 1 & fup_time <= -1,na.rm = T) / count,
+            fup1 = sum(dead_or_icu_30 == 1 & fup_time <= 1,na.rm = T) / count,
+            fup2 = sum(dead_or_icu_30 == 1 & fup_time <= 2, na.rm = T) / count,
+            fup3 = sum(dead_or_icu_30 == 1 & fup_time <= 3, na.rm = T) / count,
+            fup4 = sum(dead_or_icu_30 == 1 & fup_time <= 4, na.rm = T) / count,
+            fup5 = sum(dead_or_icu_30 == 1 & fup_time <= 5, na.rm = T) / count,
+            fup6 = sum(dead_or_icu_30 == 1 & fup_time <= 6, na.rm = T) / count,
+            fup7 = sum(dead_or_icu_30 == 1 & fup_time <= 7, na.rm = T) / count,
+            fup8 = sum(dead_or_icu_30 == 1 & fup_time <= 8, na.rm = T) / count,
+            fup9 = sum(dead_or_icu_30 == 1 & fup_time <= 9, na.rm = T) / count,
+            fup10 = sum(dead_or_icu_30 == 1 & fup_time <= 10, na.rm = T) / count,
+            fup11 = sum(dead_or_icu_30 == 1 & fup_time <= 11, na.rm = T) / count,
+            fup12 = sum(dead_or_icu_30 == 1 & fup_time <= 12, na.rm = T) / count,
+            fup13 = sum(dead_or_icu_30 == 1 & fup_time <= 13, na.rm = T) / count,
+            fup14 = sum(dead_or_icu_30 == 1 & fup_time <= 14, na.rm = T) / count,
+            fup15 = sum(dead_or_icu_30 == 1 & fup_time <= 15, na.rm = T) / count,
+            fup16 = sum(dead_or_icu_30 == 1 & fup_time <= 16, na.rm = T) / count,
+            fup17 = sum(dead_or_icu_30 == 1 & fup_time <= 17, na.rm = T) / count,
+            fup18 = sum(dead_or_icu_30 == 1 & fup_time <= 18, na.rm = T) / count,
+            fup19 = sum(dead_or_icu_30 == 1 & fup_time <= 19, na.rm = T) / count,
+            fup20 = sum(dead_or_icu_30 == 1 & fup_time <= 20, na.rm = T) / count,
+            fup21 = sum(dead_or_icu_30 == 1 & fup_time <= 21, na.rm = T) / count,
+            fup22 = sum(dead_or_icu_30 == 1 & fup_time <= 22, na.rm = T) / count,
+            fup23 = sum(dead_or_icu_30 == 1 & fup_time <= 23, na.rm = T) / count,
+            fup24 = sum(dead_or_icu_30 == 1 & fup_time <= 24, na.rm = T) / count,
+            fup25 = sum(dead_or_icu_30 == 1 & fup_time <= 25, na.rm = T) / count,
+            fup26 = sum(dead_or_icu_30 == 1 & fup_time <= 26, na.rm = T) / count,
+            fup27 = sum(dead_or_icu_30 == 1 & fup_time <= 27, na.rm = T) / count,
+            fup28 = sum(dead_or_icu_30 == 1 & fup_time <= 28, na.rm = T) / count,
+            fup29 = sum(dead_or_icu_30 == 1 & fup_time <= 29, na.rm = T) / count,
+            fup30 = sum(dead_or_icu_30 == 1 & fup_time <= 30, na.rm = T) / count
+            )  %>% 
+  select(-ttp, -count, -outcome) %>% 
+  as.matrix() %>% 
+  unname
+
+  
+
+ttp <- seq(0,35, by = 2)
+fup_time <- seq(0,30, by = 1)
+z <- test*100 # for percentages
+
+# Create the plot
+# custom color palette
+my.heat.colors <- function(...) hcl.colors(palette = "inferno", ..., rev=T)
+
+# This is the plot
+#GA::persp3D(ttp, fup_time, z, theta = 40, phi = 15, 
+#            expand = 0.7, col.palette = my.heat.colors, d = 20,
+    #        xlim = c(0,36), ylim = c(0,31), zlim = c(0, 35), nlevels = 30,
+    #        border = T, xlab = "Time to positivity (hours)",
+    #        ylab = "Follow-up time (days)",
+    #        zlab = "ICU admission in 30 days (%)"
+   #         )
+
+
+```
+
+The most common pathogens were *Escherichia coli* and *Staphylococcus aureus*, occurring in `r paste(sum(df$finding == "Escherichia coli"), " (", label_percent(accuracy = 1)(sum(df$finding == "Escherichia coli") / sum(df$finding != "Negative")), ")", sep = "")` and `r paste(sum(df$finding == "Staphylococcus aureus"), " (", label_percent(accuracy = 1)(sum(df$finding == "Staphylococcus aureus") / sum(df$finding != "Negative")), ")", sep = "")` of BSI episodes, respectively. A TTP within the first quartile was a statistically significant risk factor for ICU admission or mortality within 30 days in infections with *S. pneumoniae*, *E. coli*, *S. aureus*, beta-hemolytic streptococci, *Klebsiella* species, and polymicrobial infections, see figure 5.
+
+```{r forest_plot, eval = T, fig.height = 3.2, fig.width = 6.5, fig.cap = "Figure 5. Assocation of TTP vs 30-day ICU admission or mortality by species. The Odds ratios represents species-specific comparisons of the first quartile of TTP for that species vs Q2-Q4."}
+
+# this plot is an annotation of several plots
+
+## table för forestplot - here we include contamiants
+test <- df_w_contaminants %>% 
+  mutate(bacteria_topten = ifelse(contaminant, "Contaminant", bacteria_topten),
+         bacteria_topten = ifelse(bacteria_topten == "Other Gram_positive", "Other Gram-positive", bacteria_topten),
+         bacteria_topten = ifelse(bacteria_topten == "Other Gram_negative", "Other Gram-negative", bacteria_topten),
+         bacteria_topten = ifelse(bacterial_class == "Anaerobic", "Anaerobic bacteria", str_to_sentence(bacteria_topten))) %>% 
+  filter(!is.na(dead_or_icu_30)) %>% 
+  filter(!is.na(ttp), finding != "Negative") %>% 
+  group_by(bacteria_topten) %>% 
+  mutate(q1_ttp = quantile(ttp, 0.25, na.rm = T),
+         ttp_strata_2 = ifelse(ttp < q1_ttp, 1, 0)) %>% 
+  ungroup() %>% 
+  group_by(bacteria_topten) %>% 
+  summarise(count = n(),
+            q1 = quantile(ttp, 0.25, na.rm = T),
+            nq1 = sum(ttp < q1, na.rm = T),
+            nq24 = sum(ttp >= q1, na.rm = T),
+            deadq1 = sum(dead_or_icu_30 == 1 & ttp < q1,na.rm = T),
+            deadq24 = sum(dead_or_icu_30 == 1 & ttp >= q1,na.rm = T),
+            median = median(ttp, na.rm = T),
+            q3 = quantile(ttp, 0.75, na.rm = T),
+            or = (fisher.test(data.frame(dead = c(deadq1,deadq24) , alive = c(nq1-deadq1, nq24-deadq24))))$estimate[[1]],
+            lower = (fisher.test(data.frame(dead = c(deadq1,deadq24) , alive = c(nq1-deadq1, nq24-deadq24))))$conf.int[[1]],
+            upper = (fisher.test(data.frame(dead = c(deadq1,deadq24) , alive = c(nq1-deadq1, nq24-deadq24))))$conf.int[[2]],
+            pval = (fisher.test(data.frame(dead = c(deadq1,deadq24) , alive = c(nq1-deadq1, nq24-deadq24))))$p.value[[1]]
+  ) %>% 
+  arrange(desc(or))
+
+# updating table with pasted character vectors
+test2 <- test %>%
+  mutate(
+    or2 = format(round(or,2), nsmall = 1),
+    lower2 = format(round(lower,2), nsmall = 1),
+    upper2 = format(round(upper,2), nsmall = 2),
+    est = paste0(or2, " (", lower2, " - ", upper2, ")"),
+    dead_n_q1 = paste0(deadq1, "/", nq1),
+    dead_n_q24 = paste0(deadq24, "/", nq24),
+    median_iqr = paste0(median, " (", q1, "-", q3, ")")) %>% 
+  mutate(pval2 = case_when(
+    pval < .001 ~ "<0.001",
+    round(pval, 2) == .05 ~ as.character(round(pval,3)),
+    pval < .01 ~ str_pad( # if less than .01, go one more decimal place
+      as.character(format(round(pval, 3), nsmall = 3)),
+      width = 4,
+      pad = "0",
+      side = "right"
+    ),
+    TRUE ~ str_pad( # otherwise just round to 2 decimal places and pad string so that .2 reads as 0.20
+      as.character(format(round(pval, 2), nsmall = 2)),
+      width = 4,
+      pad = "0",
+      side = "right"
+    )
+  )) 
+
+
+# adding an empty row with headlines
+test3 <- 
+  bind_rows(
+    data.frame(
+      bacteria_topten = "Pathogen",
+      est = "Odds Ratio (95% CI)",
+      pval2 = "p-value",
+      median_iqr = "TTP, median (IQR)",
+      dead_n_q1 = "events/N Q1",
+      dead_n_q24 = "events/N Q2-Q4"
+    ), test2
+  ) 
+
+
+# mid section of plot (with errorbars)
+mid <- test3 %>% 
+  ggplot(aes(y = reorder(bacteria_topten, or))) +
+  theme_classic() +
+  geom_point(aes(x = or), shape = 16, size = 2.5) +
+  geom_errorbar(aes(xmin = lower, xmax = upper),linewidth = 0.3, width = 0.35) +
+  geom_vline(xintercept = 1,linetype = "dashed", linewidth = 0.25) +
+  scale_x_continuous(transform = "log", breaks = c(0.25, 0.5, 1, 2, 4)) +
+  labs(x = "Risk from shorter TTP vs 30-day ICU admissior mortality", y = "") +
+  coord_cartesian(xlim = c(0.125,6), ylim = c(1,16)) +
+  annotate("text", x = 0.3, y = 16, label = "Reduced risk", size = 7/.pt, fontface = "bold") +
+  annotate("text", x = 3, y = 16, label = "Increased risk", size = 7/.pt, fontface = "bold") +
+  theme(axis.line.y = element_blank(),
+        axis.ticks.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.title.y= element_blank(),
+        axis.text.x = element_text(size = 7),
+        axis.title.x = element_text(size = 7))
+
+
+# renaming for correct representation, including custom italicizing
+test3$bacteria_topten <- c("bold('Pathogen')",
+                           "italic('S. pneumoniae')",
+                           "italic('E. coli')",
+                           "italic('S. aureus')",
+                           "italic('Klebsiella')~species",
+                           "plain('Beta hemolytic streptococci')",
+                           "plain('Other Gram-negative')",
+                           "plain('Anaerobic bacteria')",          
+                           "plain('Polymicrobial finding')",
+                           "plain('Other enterobacterales')",
+                           "plain('Other Gram-positive')",
+                           "plain('Contamination')",
+                           "plain('Alpha hemolytic streptococci')",
+                           "italic('Staphylococcus')~spp.",
+                           "italic('Enterococcus')~spp.",
+                           "plain('Fungal')")
+
+# left part - with names, events / N
+left <- test3 %>% 
+  ggplot(aes(y = reorder(bacteria_topten, or))) +
+  geom_text(aes(x = 0, label = bacteria_topten), parse = TRUE, hjust = 0, size = 7/.pt) +
+  geom_text(
+    aes(x = 0.6, label = dead_n_q1),
+    hjust = 0.5, size = 7/.pt,
+    fontface = ifelse(test3$est == "Odds Ratio (95% CI)", "bold", "plain")) +
+  geom_text(
+    aes(x = 0.9, label = dead_n_q24),
+    hjust = 0.5, size = 7/.pt,
+    fontface = ifelse(test3$est == "Odds Ratio (95% CI)", "bold", "plain")) +
+  theme_void() +
+  coord_cartesian(xlim = c(0, 1))
+
+# right side of plot - OR (95% VI)
+right <- 
+  test3  %>% 
+  ggplot() +
+  geom_text(
+    aes(x = 0, y = reorder(bacteria_topten, or), label = est),
+    hjust = 0.5, size = 7/.pt,
+    fontface = ifelse(test3$pval2 == "p-value", "bold", "plain")) +
+  theme_void() 
+
+
+layout <- c(
+  area(t = 0, l = 0, b = 30, r = 7.5), # left plot, starts at the top of the page (0) and goes 30 units down and 3 units to the right
+  area(t = 0, l = 8.5, b = 30, r = 12.5), # middle plot starts a little lower (t=1) because there's no title. starts 1 unit right of the left plot (l=4, whereas left plot is r=3), goes to the bottom of the page (30 units), and 6 units further over from the left plot (r=9 whereas left plot is r=3)
+  area(t = 0, l = 13.5, b = 30, r = 15) # right most plot starts at top of page, begins where middle plot ends (l=9, and middle plot is r=9), goes to bottom of page (b=30), and extends two units wide (r=11)
+)
+
+# final plot arrangement
+fig5 <- left + mid + right + plot_layout(design = layout)
+fig5
+ggsave(here("drafts", "figure5B.pdf"), width =  6.5, height = 3.2, fig5)
+
+
+```
+
+## Discussion
+
+This study showed that TTP is associated with disease severity and outcome in BSIs and consolidates results of previous studies. Our hypothesis of a non-linear relationship was verified and congruent across multiple markers of disease severity and outcome. In addition, we found that shorter TTP was associated with a more severe course of disease in the first days of a bloodstream infection as well as with worse patient outcomes.
+
+This is the first study to model the association between TTP and mortality in a non-linear way and we found an exponentially increased risk of mortality with shorter TTP. This is important for several reasons. First, this strengthens the assumption of a true association as this model is more biologically plausible than a linear model, given the exponential growth of bacteria. Second, this could explain the conflicting results in previous studies, where those modelling the association linearly found no association but those using categorisation did, especially if the lowest quartile or tertile were used.[@cillóniz2017; @cobos-trigueros2014; @deguchi2024; @hamilton2022; @kahn2021; @laupland2024a; @khatib2005; @martín-gutiérrez2017; @bläckberg2023] To further emphasise this, we provide a linear and a categorised model in the supplementary appendix. These models mimick two recent studies with conflicting results and we were able to replicate the results of those studies in our dataset.[@laupland2024a; @hamilton2022]. Third, upon comparison, the non-linear model had a substantially better fit than the linear and categorised models, indicating a better representation of the association. The association seemed to reach a plateau with TTP longer than 12 hours, where mortality risk was similar to that of the group with negative cultures. Theoretically, this could motivate a categorisation / dichotomisation at around a 10 hour cutoff. Nevertheless, our analysis showed that a TTP \< 8 or \< 7 hours was much worse than \< 10 hours. Thus, categorising or dichotomising TTP would result in loss of precision and resolution.
+
+We collected thirteen disease severity markers, including laboratory values and vital signs, at the time of culturing. Previous studies that typically focus on outcome alone, primarily mortality within 30 days.[@bläckberg2023; @cillóniz2017; @deguchi2024; @hamilton2022; @hsieh2022; @Krus2022; @kahn2021] We considered it mechanistically relevant to study disease severity at the time of culture, as other factors may influence disease course during 30 days. The baseline values almost unanimously suggested that shorter TTP was associated with severe disease, again in an exponential way. Oxygen saturation displayed almost no association, which may be due to administration of supplemental oxygen, which we unfortunately did not have data on; a PaO2/FiO2 ratio would have been a more appropriate measure. In addition, we studied the dynamics of disease severity markers in the important first 72 hours of a BSI episode. Several disease severity markers showed a more severe progression in the first days if TTP was shorter, especially systolic blood pressure but also lactate, creatinine and C-reactive protein. The association with disease severity and disease progression signals that increased vigilance may be needed in patients with short TTP. We also found a strong association with ICU admission and mortality, which was consistent after adjustment for numerous potentially confounding factors. The cumulative hazard curve was included to show timing of events and showed that most events occurred in the first days, suggesting that they were related to the BSI.
+
+Time to positivity varied significantly between different species. Generally, fast-growing pathogens, such as *Escherichia coli* and *Streptococcus pneumoniae* had short TTPs, while fungi and anaerobic bacteria had longer TTP, in line with previous studies.[@laupland2024a; @hamilton2022; @deguchi2024] When stratified, we found that TTP was a risk factor in the majority of findings, both gramnegative and grampositive, and also in pathogens normally found in different foci (e.g., *S. pneumoniae* in the lungs, *E. coli* in the urinary tract, and *S. aureus* in soft tissue infections), indicating that short TTP is a severity marker across different clinical phenotypes. For some pathogens, including other gram-negativ, other Enterobacterales and anaerobic bacteria there was an increased risk with short TTP that did not reach statistical significance, possibly due to smaller sample sizes in these strata. However, as in previous studies, the association with poor outcome was not seen in low-virulence pathogens such as alpha-hemolytic streptococci, coagulase-negative staphylococci or *Enterococcus* species.[@laupland2024a] In secondary pathogens, such as fungi, a higher baseline mortality could also offset BSI-related mortality (due to malignancies, intensive care etc.). A higher baseline mortality risk could possibly explain why outcome occurrence incresased near the end of the follow-up period in patients with longer TTP, in figure 4. Further analyses of species-specific characteristics regarding TTP and association with disease severity are needed but was beyond the scope of this article.
+
+Methodological strengths include a population-based large study sample, where the linkage to comprehensive clinical databases enabled information on disease severity on a detail that has not been used in previous studies. The congruent association of multiple disease severity markers strengthens the hypothesis that TTP - as a proxy for pathogen inoculum in blood - has a causative effect on disease severity in BSI. This is further strengthened by the exponential model which, as stated above, provides biological plausibility. In addition, we have been able to adjust the analysis for several potential confounders previously not studied, including immunosuppression and concurrent antibiotics. We could also confirm previous studies suggesting that prolonged transportation time before incubation invalidates TTP measurements.[@lamy2019; @cobos-trigueros2014] Weaknesses are related to the study´s retrospective nature, with missing data in disease severity markers, and risk of selection bias. Our definition of contaminants, although often employed, is inprecise and most likely led to incorret inclusion of contaminations. In addition, the lack of standardised data collection could affected the analysis of trajectories during the first 72 hours. Finally, the study period included the latter part of the COVID-19 pandemic which may have affected results.
+
+Although this study showed a strong association between TTP and disease severity, future studies are needed to determine the clinical utility of TTP. In our opinion, such studies should model TTP non-linearly to fully make use of the information that TTP provides. If TTP could be shown to have added value in predicting deterioration in BSI, real-time reporting of TTP could assist clinical decision-making. In such a situation, the implementation would be quite straight-forward, as most modern blood culture systems already register TTP. Our results could also inspire trials aiming to improve BSI management, e.g., by administering additional antimicrobial treatment, or by employing stricter monitoring protocols, in patients with shorter TTP.
+
+To conclude, this study firmly supports a strong and clinically relevant association of TTP with disease severity in bloodstream infections. The non-linear model provides a biologically plausible explanation to previously conflicting results. Future studies should focus on determining the clinical utility of TTP as a biomarker in BSIs.
+
+#### Contributors
+
+GT and OL conceived the study. OL performed project management and data retrieval. KO and TS provided data analysis, retrieved microbiology data and assisted in the classification of pathogens. GT performed data management, software development and statistical analysis, with the assistance of JT. The first draft was written by OL and then revised by JT, KO, TS, and GT. All authors had full access to the data and approved the decision to submit the manuscript. The data was accessed and verified by OL and GT.
+
+#### Declaration of interests
+
+We declare no competing interests
+
+#### Data sharing
+
+The underlying dataset cannot be shared publicly due to privacy concerns related to the risk of indirect identification. Researchers with requests of data must obtain approval by the Swedish Ethical Review Authority as well as the Data Protection Officer at Region Skåne.
+
+#### Acknowledgements
+
+The authors would like to express their sincere gratitude to the data extraction team at Kliniska Studier Sverige - Forum söder, for invaluable help during the data retrieval process
+
+### Figure legends
+
+Figure 1. Time to positivity vs disease severity markers at baseline in patients with positive blood cultures. The association is fitted using a generalised additive model (line), with shaded area representing 95% confidence interval. CRP = C-reactive protein, NEWS = National Early Warning Score, bpm = breaths per minute, SBP = Systolic blood pressure, SpO2 = peripheral oxygen saturation.
+
+Figure 2. Dynamics of disease severity markers in the first 72 hours, by TTP strata. The line represent generalised additive model fit, and shading 95% confidence intervals. CRP = C-reactive protein, NEWS = National Early Warning Score, bpm = breaths per minute, SBP = Systolic blood pressure, SpO2 = peripheral oxygen saturation.
+
+Figure 3. Association between time-to-positivity (TTP) and 30-day all-cause mortality, using a non-linear logistic regression model, with 95% confidence interval. Dashed line = suggested TTP cutoff at 10 hours. Marginal histogram (top) shows the distribution of TTP.
+
+Figure 4. Three-dimensional perspective plot of the cumulative risk for ICU admission or death by TTP and time.
+
+Figure 5. Assocation of TTP vs 30-day ICU admission or mortality by species. The Odds ratios represents species-specific comparisons of the first quartile of TTP for that species vs Q2-Q4.
