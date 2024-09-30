@@ -2,4 +2,4 @@ This repository contains code for a research project on the association between 
 
 The code folder contains all code rendering the manuscript and the supplementary appendix from raw data. 
 
-In the data folder, an excel file of species classification is provided. No individual data is provided, due to privacy concerns
+In the data folder, an excel file of species classification is provided. No individual raw data is provided, due to privacy concerns / sensitive data.
