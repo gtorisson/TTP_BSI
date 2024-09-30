@@ -1,5 +1,5 @@
 ---
-title: "Association of short time to blood culture positivity with disease severity in - a population-based cohort study"
+title: "Association of short time to positivity with disease severity in bloodstream infections - a population-based cohort study"
 subtitle: "Supplementary appendix"
 mainfont: Times New Roman
 format:

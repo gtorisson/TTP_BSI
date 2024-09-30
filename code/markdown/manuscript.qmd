@@ -1,5 +1,5 @@
 ---
-title: "Association of short time to blood culture positivity with disease severity - a population-based study"
+title: "Association of short time to positivity with disease severity in bloodstream infections - a population-based study"
 author: "Gustav Torisson"
 format: docx
 editor: visual
