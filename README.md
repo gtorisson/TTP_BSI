@@ -1,4 +1,4 @@
-This repository contains code for a research project on the association between time to blood culture positivity and diseases severity in bloodstream infections.
+This repository contains code for a research project on the association between time to blood culture positivity and disease severity in bloodstream infections.
 
 The code folder contains all code rendering the manuscript and the supplementary appendix from raw data. 
 
